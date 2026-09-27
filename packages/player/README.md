@@ -8,28 +8,59 @@ npm install @scormflow/player @scormflow/sdk
 
 ## Status
 
-**Pre-release — `0.0.1` is a namespace claim, not a working build.** The implementation is in progress; track [the roadmap](https://github.com/scormflow/scorm-engine-client#roadmap) for shipping milestones.
+**Alpha.** The runtime bridge and iframe player are implemented and unit-tested. APIs may still shift before `1.0`; track [the roadmap](https://github.com/scormflow/scorm-engine-client#roadmap).
 
-## Planned usage
+## Usage
 
 ```ts
 import { mountScormPlayer } from '@scormflow/player';
-import { ScormClient, RestTransport } from '@scormflow/sdk';
+import { RestTransport } from '@scormflow/sdk';
 
-const client = new ScormClient({
-  transport: new RestTransport({ baseUrl, apiKey }),
+const transport = new RestTransport({ baseUrl, apiKey });
+
+// Start (or resume) an attempt, then mount the SCO.
+const { attemptId, launch } = await transport.startAttempt(courseId, {
+  learnerId: 'learner-123',
+  learnerName: 'Ada Lovelace',
 });
 
-const player = mountScormPlayer({
+const player = await mountScormPlayer({
   container: '#scorm-root',
-  attemptId: 'attempt_abc',
-  client,
-  onComplete: (result) => console.log(result),
-  onProgress: (progress) => console.log(progress),
+  attemptId,
+  launchUrl: `${baseUrl}/courses/${courseId}/content/index.html`,
+  transport,
+  autoCommitMs: 10_000, // debounced background commits (0 to disable)
+  onCommit: (result) => console.log('committed', result.summary),
+  onError: (err) => console.error('sync failed', err),
 });
+
+// Later, when the learner leaves:
+await player.destroy(); // final Terminate + cleanup
 ```
 
-The player mounts an iframe, loads the SCO launch URL, and injects `window.API` (SCORM 1.2) and `window.API_1484_11` (SCORM 2004) — wired to whatever `ScormTransport` you configured.
+`mountScormPlayer` hydrates the runtime from the engine (`GET /attempts/:id/runtime`),
+injects `window.API` (SCORM 1.2) or `window.API_1484_11` (SCORM 2004), and embeds the SCO
+in an iframe. The SCO discovers the API via the standard parent/opener lookup walk and
+behaves exactly as it would against any conformant LMS.
+
+### How it works
+
+The SCORM JavaScript API is synchronous (`LMSGetValue` returns immediately), but the
+engine is reached over async HTTP. The bridge resolves this by:
+
+- **hydrating** an in-memory CMI model once at initialize,
+- serving every `GetValue` / `SetValue` from it **synchronously**,
+- **flushing** dirty values to the engine in the background (debounced auto-commit,
+  plus explicit `Commit`/`Terminate`), with commits serialized so no write is lost.
+
+Authoritative CMI validation happens on the engine at commit time — the bridge stays
+thin and reports engine-side `errors` / `warnings` via `onCommit`.
+
+### Lower-level API
+
+`attachScormApi(window, core)`, `RuntimeCore`, `CmiStore`, and the
+`createScorm12Api` / `createScorm2004Api` factories are exported for custom
+integrations that manage their own iframe or window.
 
 ## License
 
