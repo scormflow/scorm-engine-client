@@ -84,7 +84,7 @@ export class LocalStorageTransport implements ScormTransport {
       attemptId,
       version: this.version,
       cmi: { ...stored.cmi },
-      entry: isResume ? 'resume' : 'ab_initio',
+      entry: isResume ? 'resume' : 'ab-initio',
     };
     if (this.learner) result.learner = this.learner;
     return result;

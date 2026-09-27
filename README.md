@@ -240,7 +240,7 @@ Errors are typed: `ScormHttpError`, `ScormNetworkError`, `ScormTimeoutError`, `S
 
 ## Roadmap
 
-Checkboxes reflect the actual state of `main`. Source of truth for scope: [`../scope.md`](../scope.md).
+Checkboxes reflect the actual state of `main`.
 
 ### Phase 1 — MVP
 - [x] Monorepo (pnpm workspaces) + TypeScript strict

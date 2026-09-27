@@ -3,7 +3,8 @@ export type {
   RuntimeState,
   CommitOptions,
   CommitResult,
-  CommitWarning,
+  CommitIssue,
+  RuntimeSummary,
   TerminateOptions,
   ScormVersion,
   ScormEntry,
@@ -30,4 +31,8 @@ export { LocalStorageTransport } from './transports/local-storage.js';
 export type { LocalStorageTransportOptions, StorageLike } from './transports/local-storage.js';
 
 export { RestTransport } from './transports/rest.js';
-export type { RestTransportOptions } from './transports/rest.js';
+export type {
+  RestTransportOptions,
+  StartAttemptRequest,
+  StartAttemptResult,
+} from './transports/rest.js';

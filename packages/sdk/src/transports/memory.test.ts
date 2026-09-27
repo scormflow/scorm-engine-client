@@ -3,13 +3,13 @@ import { MemoryTransport } from './memory.js';
 import { ScormError } from '../errors.js';
 
 describe('MemoryTransport', () => {
-  it('initializes a fresh attempt with ab_initio entry', async () => {
+  it('initializes a fresh attempt with ab-initio entry', async () => {
     const t = new MemoryTransport();
     const state = await t.initialize('a1');
     expect(state.attemptId).toBe('a1');
     expect(state.version).toBe('SCORM_1_2');
     expect(state.cmi).toEqual({});
-    expect(state.entry).toBe('ab_initio');
+    expect(state.entry).toBe('ab-initio');
   });
 
   it('reports `resume` entry when re-initializing after a commit', async () => {

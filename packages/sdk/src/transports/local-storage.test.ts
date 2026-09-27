@@ -55,10 +55,10 @@ describe('LocalStorageTransport', () => {
     expect(storage.getItem('scormflow:attempt:a1')).toBeNull();
   });
 
-  it('first initialize reports ab_initio entry', async () => {
+  it('first initialize reports ab-initio entry', async () => {
     const t = new LocalStorageTransport({ storage });
     const state = await t.initialize('fresh');
-    expect(state.entry).toBe('ab_initio');
+    expect(state.entry).toBe('ab-initio');
   });
 
   it('throws when no Storage implementation is available', () => {

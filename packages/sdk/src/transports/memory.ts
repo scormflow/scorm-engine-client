@@ -60,7 +60,7 @@ export class MemoryTransport implements ScormTransport {
       attemptId,
       version: this.version,
       cmi: { ...state.cmi },
-      entry: wasInitialized || Object.keys(state.cmi).length > 0 ? 'resume' : 'ab_initio',
+      entry: wasInitialized || Object.keys(state.cmi).length > 0 ? 'resume' : 'ab-initio',
     };
     if (this.learner) result.learner = this.learner;
     return result;
