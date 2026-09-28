@@ -30,6 +30,18 @@ export type { MemoryTransportOptions } from './transports/memory.js';
 export { LocalStorageTransport } from './transports/local-storage.js';
 export type { LocalStorageTransportOptions, StorageLike } from './transports/local-storage.js';
 
+export { ResourceClient } from './resources.js';
+export type {
+  ResourceClientOptions,
+  Course,
+  ScoSummary,
+  CourseListResult,
+  AnalyticsOverview,
+  CourseAnalytics,
+  LearnerAnalytics,
+  UploadCourseOptions,
+} from './resources.js';
+
 export { RestTransport } from './transports/rest.js';
 export type {
   RestTransportOptions,

@@ -13,3 +13,10 @@ export type {
 
 export { ScormPlayer } from './scorm-player.js';
 export type { ScormPlayerProps } from './scorm-player.js';
+
+export { useAsyncResource } from './use-resource.js';
+export type { AsyncResource } from './use-resource.js';
+
+export { useCourse, useCourseAnalytics } from './use-course.js';
+export { useScormUpload } from './use-scorm-upload.js';
+export type { UseScormUploadResult, UploadStatus } from './use-scorm-upload.js';

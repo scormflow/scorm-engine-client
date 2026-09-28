@@ -85,13 +85,43 @@ The hook mounts the SCO for the component's lifetime, re-mounts when `attemptId`
 `launchUrl` / `transport` change, and terminates the attempt on unmount. Authoritative
 CMI validation happens on the engine at commit time.
 
-## Roadmap
+## Data hooks
 
-Data hooks planned on top of the SDK's resource layer:
+Built on the SDK's `ResourceClient` (courses + analytics). Construct one client
+and pass it to the hooks:
 
-- `useCourse(courseId)` — course metadata
-- `useCourseAnalytics(courseId)` — live analytics
-- `useScormUpload()` — package upload with progress
+```tsx
+import { ResourceClient } from '@scormflow/sdk';
+import { useCourse, useCourseAnalytics, useScormUpload } from '@scormflow/react';
+
+const resources = new ResourceClient({ baseUrl, apiKey });
+
+function CourseCard({ courseId }: { courseId: string }) {
+  const { data: course, loading, error, refetch } = useCourse(resources, courseId);
+  const { data: stats } = useCourseAnalytics(resources, courseId);
+  if (loading) return <Spinner />;
+  if (error) return <Error onRetry={refetch} />;
+  return <h3>{course!.title} — {Math.round((stats?.completionRate ?? 0) * 100)}% complete</h3>;
+}
+
+function Uploader() {
+  const { upload, status, progress } = useScormUpload(resources);
+  return (
+    <input
+      type="file"
+      accept=".zip"
+      onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])}
+      disabled={status === 'uploading'}
+    />
+  );
+  // status: 'idle' | 'uploading' | 'success' | 'error'; progress: 0..1
+}
+```
+
+- `useCourse(resources, courseId)` / `useCourseAnalytics(resources, courseId)` —
+  return `{ data, loading, error, refetch }`; pass a falsy `courseId` to stay idle.
+- `useScormUpload(resources)` — `{ upload, status, progress, result, error, reset }`;
+  reports real upload progress via XHR in the browser.
 
 ## License
 
