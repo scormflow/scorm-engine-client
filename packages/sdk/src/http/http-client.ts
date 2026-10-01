@@ -55,8 +55,10 @@ const DEFAULT_RETRY_BASE_MS = 200;
 const DEFAULT_RETRY_MAX_MS = 5_000;
 
 export class HttpClient {
-  private readonly baseUrl: string;
-  private readonly apiKey: string | undefined;
+  /** Normalized base URL (no trailing slash). Read by clients that bypass `fetch` (e.g. XHR uploads). */
+  readonly baseUrl: string;
+  /** Tenant API key, when configured. Read by clients that build their own requests. */
+  readonly apiKey: string | undefined;
   private readonly token: TokenProvider | undefined;
   private readonly fetchImpl: FetchLike;
   private readonly headers: Record<string, string>;

@@ -78,10 +78,14 @@ export class ResourceClient {
   private readonly baseUrl: string;
   private readonly apiKey: string | undefined;
 
-  constructor(opts: ResourceClientOptions) {
-    this.http = new HttpClient(opts);
-    this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
-    this.apiKey = opts.apiKey;
+  /**
+   * Pass options to build a dedicated {@link HttpClient}, or an existing one to
+   * share auth + retry configuration with another client.
+   */
+  constructor(opts: ResourceClientOptions | HttpClient) {
+    this.http = opts instanceof HttpClient ? opts : new HttpClient(opts);
+    this.baseUrl = this.http.baseUrl;
+    this.apiKey = this.http.apiKey;
   }
 
   // ---- courses -------------------------------------------------------------

@@ -42,6 +42,15 @@ export type {
   UploadCourseOptions,
 } from './resources.js';
 
+export { ScormClient, createScormClient } from './client.js';
+export type {
+  ScormClientOptions,
+  RequestOptions,
+  CoursesApi,
+  AttemptsApi,
+  AnalyticsApi,
+} from './client.js';
+
 export { RestTransport } from './transports/rest.js';
 export type {
   RestTransportOptions,
