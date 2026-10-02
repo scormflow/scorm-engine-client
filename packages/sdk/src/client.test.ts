@@ -136,6 +136,29 @@ describe('ScormClient', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('exposes the LRS on the same HTTP client as the other namespaces', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(['id-1']));
+    const client = createScormClient({
+      baseUrl: 'https://x/v1',
+      apiKey: 'k',
+      fetch: fetchMock,
+      retries: 0,
+    });
+
+    expect(client.xapi.http).toBe(client.http);
+
+    await client.xapi.storeStatements({
+      actor: { mbox: 'mailto:ada@example.com' },
+      verb: { id: 'http://adlnet.gov/expapi/verbs/completed' },
+      object: { id: 'http://example.com/courses/intro' },
+    });
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://x/v1/xapi/statements');
+    // The facade's auth config reaches the LRS too.
+    expect((init.headers as Record<string, string>)['X-API-Key']).toBe('k');
+  });
+
   it('propagates HTTP errors from namespace calls', async () => {
     const fetchMock = vi.fn<FetchLike>(async () =>
       jsonResponse({ code: 'course_not_found', message: 'nope' }, 404),
