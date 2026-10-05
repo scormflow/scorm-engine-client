@@ -123,6 +123,112 @@ function Uploader() {
 - `useScormUpload(resources)` — `{ upload, status, progress, result, error, reset }`;
   reports real upload progress via XHR in the browser.
 
+## xAPI hooks
+
+Built on the SDK's `XapiClient` — the engine's built-in LRS.
+
+```tsx
+import { XapiClient } from '@scormflow/sdk';
+import { useXapiStatements, useXapiDocument } from '@scormflow/react';
+
+const xapi = new XapiClient({ baseUrl, apiKey });
+const agent = { mbox: 'mailto:ada@example.com' };
+
+function Timeline() {
+  const { data, loading } = useXapiStatements(xapi, { agent, limit: 20 });
+  if (loading) return <Spinner />;
+  return <ul>{data!.statements.map((s) => <li key={s.id}>{s.verb.id}</li>)}</ul>;
+}
+
+function Bookmark({ activityId }: { activityId: string }) {
+  const doc = useXapiDocument<{ page: number }>(xapi.state, {
+    activityId,
+    agent,
+    stateId: 'bookmark',
+  });
+  return (
+    <button onClick={() => doc.save({ page: (doc.data?.content.page ?? 0) + 1 })} disabled={doc.saving}>
+      Page {doc.data?.content.page ?? 0}
+    </button>
+  );
+}
+```
+
+- `useXapiStatements(xapi, query, enabled?)` — `{ data, loading, error, refetch }`.
+- `useXapiActivity(xapi, activityId)` / `useXapiPerson(xapi, agent)` — idle while
+  the argument is falsy; `data` is `null` for an activity the LRS has never seen.
+- `useXapiDocument(api, key)` — read/write one document. Pass `xapi.state`,
+  `xapi.activityProfile` or `xapi.agentProfile` as `api`. Returns the resource
+  fields plus `{ save, merge, remove, saving, saveError }`.
+
+  Writes send the last-seen `ETag` as `If-Match`, so a document changed by
+  someone else between your read and your write fails with a 412 instead of
+  quietly overwriting them.
+
+## cmi5 hooks
+
+LMS-side hooks over the SDK's `Cmi5Client` (`client.cmi5`).
+
+```tsx
+import { useCmi5Course, useCmi5Launch, useCmi5Registration } from '@scormflow/react';
+
+function Syllabus({ courseId, registrationId }: { courseId: string; registrationId: string }) {
+  const { data: course } = useCmi5Course(client.cmi5, courseId);
+  const { data: reg, refetch } = useCmi5Registration(client.cmi5, registrationId);
+  const { launch, status } = useCmi5Launch(client.cmi5);
+
+  const open = async (auId: string) => {
+    const result = await launch(registrationId, { auId });
+    if (result) window.open(result.url);
+  };
+
+  return (
+    <ul onFocus={refetch}>
+      {course?.aus.map((au) => (
+        <li key={au.id}>
+          {au.title} {reg?.aus.find((p) => p.id === au.id)?.satisfied ? '✓' : ''}
+          <button disabled={status === 'launching'} onClick={() => open(au.id)}>Launch</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+There is no AU-side hook on purpose: a cmi5 fetch URL works once, and StrictMode
+runs mount effects twice. Create the SDK's `Cmi5AuSession` once, outside React.
+
+`registration.blocks` reports per-block satisfaction alongside `registration.aus`.
+`useCmi5LearnerPreferences(client.cmi5, { learnerId })` reads a learner's
+`cmi5LearnerPreferences` (`data` is `null` when none are stored); save with
+`client.cmi5.setLearnerPreferences`, then `refetch`.
+
+## Webhook hooks
+
+For an admin screen over the SDK's `WebhooksClient` (`client.webhooks`):
+
+```tsx
+import { useWebhookDeliveries, useWebhookEndpoints } from '@scormflow/react';
+
+function DeliveryLog({ endpointId }: { endpointId: string }) {
+  const { data: endpoints } = useWebhookEndpoints(client.webhooks);
+  const { data: log, refetch } = useWebhookDeliveries(client.webhooks, endpointId, { status: 'FAILED' });
+
+  return (
+    <ul>
+      {log?.data.map((d) => (
+        <li key={d.id}>
+          {d.eventType} — {d.lastError ?? d.status}
+          <button onClick={() => client.webhooks.retryDelivery(d.id).then(refetch)}>Retry</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Page through older deliveries by passing `log.pagination.nextCursor` as `before`.
+
 ## License
 
 MIT
