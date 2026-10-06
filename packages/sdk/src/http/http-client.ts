@@ -3,8 +3,8 @@ import {
   ScormHttpError,
   ScormNetworkError,
   ScormTimeoutError,
+  createHttpError,
   isRetryableStatus,
-  type ScormErrorBody,
 } from '../errors.js';
 import { computeBackoff, parseRetryAfter, sleep } from './retry.js';
 
@@ -27,6 +27,12 @@ export interface HttpClientOptions {
   retryBaseMs?: number;
   /** Max backoff in ms. Default 5000. */
   retryMaxMs?: number;
+  /**
+   * Longest `Retry-After` (e.g. on a rate-limited 429) the client will sleep
+   * through before retrying. Longer waits fail fast with the HTTP error
+   * ({@link ScormRateLimitError} for 429s). Default 30_000.
+   */
+  maxRetryAfterMs?: number;
   /** Per-request timeout in ms. Default 30_000. */
   timeoutMs?: number;
   /** Mutate the outgoing request just before it is sent. */
@@ -53,6 +59,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_RETRIES = 2;
 const DEFAULT_RETRY_BASE_MS = 200;
 const DEFAULT_RETRY_MAX_MS = 5_000;
+const DEFAULT_MAX_RETRY_AFTER_MS = 30_000;
 
 export class HttpClient {
   /** Normalized base URL (no trailing slash). Read by clients that bypass `fetch` (e.g. XHR uploads). */
@@ -65,6 +72,7 @@ export class HttpClient {
   private readonly retries: number;
   private readonly retryBaseMs: number;
   private readonly retryMaxMs: number;
+  private readonly maxRetryAfterMs: number;
   private readonly timeoutMs: number;
   private readonly onRequest: HttpClientOptions['onRequest'];
   private readonly onResponse: HttpClientOptions['onResponse'];
@@ -84,12 +92,22 @@ export class HttpClient {
     this.retries = opts.retries ?? DEFAULT_RETRIES;
     this.retryBaseMs = opts.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
     this.retryMaxMs = opts.retryMaxMs ?? DEFAULT_RETRY_MAX_MS;
+    this.maxRetryAfterMs = opts.maxRetryAfterMs ?? DEFAULT_MAX_RETRY_AFTER_MS;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.onRequest = opts.onRequest;
     this.onResponse = opts.onResponse;
   }
 
   async request<T>(req: HttpRequest): Promise<T> {
+    return parseBody<T>(await this.raw(req));
+  }
+
+  /**
+   * Like {@link request}, but hands back the raw `Response` instead of the
+   * parsed body — for endpoints whose headers are part of the result (xAPI
+   * documents carry `ETag` / `Last-Modified`) or whose body is not JSON.
+   */
+  async raw(req: HttpRequest): Promise<Response> {
     const url = this.buildUrl(req.path, req.query);
     const headers = await this.buildHeaders(req);
     const init: RequestInit = {
@@ -117,23 +135,21 @@ export class HttpClient {
         cleanup();
         if (this.onResponse) await this.onResponse(res);
 
-        if (res.ok) return await parseBody<T>(res);
+        if (res.ok) return res;
 
         const errBody = await safeJson(res);
-        if (isRetryableStatus(res.status) && attempt <= retries) {
-          const retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+        const retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
+        // A server-requested wait longer than we are willing to block for is
+        // surfaced immediately so the caller can decide (queue, back off, show UI).
+        const waitable = retryAfterMs === null || retryAfterMs <= this.maxRetryAfterMs;
+        if (isRetryableStatus(res.status) && attempt <= retries && waitable) {
           const delay =
             retryAfterMs ??
             computeBackoff({ baseMs: this.retryBaseMs, maxMs: this.retryMaxMs, attempt });
           await sleep(delay, req.signal);
           continue;
         }
-        throw new ScormHttpError(
-          res.status,
-          (errBody ?? undefined) as ScormErrorBody | undefined,
-          `${init.method} ${url} → ${res.status}`,
-          errBody,
-        );
+        throw createHttpError(res.status, res.headers, errBody, `${init.method} ${url} → ${res.status}`);
       } catch (err) {
         cleanup();
         if (err instanceof ScormHttpError) throw err;
@@ -165,6 +181,14 @@ export class HttpClient {
 
   post<T>(path: string, json?: unknown, req: Omit<HttpRequest, 'path' | 'method' | 'json'> = {}): Promise<T> {
     return this.request<T>({ ...req, path, method: 'POST', json });
+  }
+
+  put<T>(path: string, json?: unknown, req: Omit<HttpRequest, 'path' | 'method' | 'json'> = {}): Promise<T> {
+    return this.request<T>({ ...req, path, method: 'PUT', json });
+  }
+
+  patch<T>(path: string, json?: unknown, req: Omit<HttpRequest, 'path' | 'method' | 'json'> = {}): Promise<T> {
+    return this.request<T>({ ...req, path, method: 'PATCH', json });
   }
 
   delete<T>(path: string, req: Omit<HttpRequest, 'path' | 'method'> = {}): Promise<T> {
