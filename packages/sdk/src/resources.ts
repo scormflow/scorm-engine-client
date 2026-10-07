@@ -5,7 +5,13 @@
  * {@link HttpClient} configuration.
  */
 import { HttpClient, type HttpClientOptions } from './http/http-client.js';
-import { ScormHttpError, ScormNetworkError, ScormAbortError, type ScormErrorBody } from './errors.js';
+import {
+  createHttpError,
+  ScormHttpError,
+  ScormNetworkError,
+  ScormAbortError,
+  type ScormErrorBody,
+} from './errors.js';
 import type { ScormVersion } from './transport.js';
 
 export type ResourceClientOptions = HttpClientOptions;
@@ -65,6 +71,18 @@ export interface LearnerAnalytics {
   recentAttempts: unknown[];
 }
 
+export interface EngineHealth {
+  status: 'ok';
+  version: string;
+}
+
+export type ReadinessCheckStatus = 'ok' | 'error';
+
+export interface ReadinessReport {
+  status: 'ready' | 'not_ready';
+  checks: { database: ReadinessCheckStatus; storage: ReadinessCheckStatus };
+}
+
 export interface UploadCourseOptions {
   /** Override the title parsed from the manifest. */
   title?: string;
@@ -86,6 +104,31 @@ export class ResourceClient {
     this.http = opts instanceof HttpClient ? opts : new HttpClient(opts);
     this.baseUrl = this.http.baseUrl;
     this.apiKey = this.http.apiKey;
+  }
+
+  // ---- system --------------------------------------------------------------
+
+  /** Liveness: the engine is up, and which version it runs. Needs no credentials. */
+  getHealth(options?: { signal?: AbortSignal }): Promise<EngineHealth> {
+    return this.http.get<EngineHealth>('health', options?.signal ? { signal: options.signal } : {});
+  }
+
+  /**
+   * Readiness: whether the engine can reach its database and storage. Resolves
+   * with the report whether the engine answers `200` or `503` — check
+   * `status` — and never retries, so it reflects the state right now. Network
+   * failures and other HTTP errors still throw.
+   */
+  async getReadiness(options?: { signal?: AbortSignal }): Promise<ReadinessReport> {
+    try {
+      return await this.http.get<ReadinessReport>('ready', {
+        retries: 0,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      });
+    } catch (err) {
+      if (err instanceof ScormHttpError && err.status === 503 && isReadinessReport(err.body)) return err.body;
+      throw err;
+    }
   }
 
   // ---- courses -------------------------------------------------------------
@@ -151,7 +194,14 @@ export class ResourceClient {
             reject(new ScormNetworkError('Invalid JSON in upload response'));
           }
         } else {
-          reject(new ScormHttpError(xhr.status, safeParse(xhr.responseText), `POST courses → ${xhr.status}`));
+          reject(
+            createHttpError(
+              xhr.status,
+              { get: (name) => xhr.getResponseHeader(name) },
+              safeParse(xhr.responseText),
+              `POST courses → ${xhr.status}`,
+            ),
+          );
         }
       };
       xhr.onerror = () => reject(new ScormNetworkError('Upload failed'));
@@ -183,6 +233,15 @@ export class ResourceClient {
       options?.signal ? { signal: options.signal } : {},
     );
   }
+}
+
+function isReadinessReport(body: unknown): body is ReadinessReport {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    (body as { status?: unknown }).status === 'not_ready' &&
+    typeof (body as { checks?: unknown }).checks === 'object'
+  );
 }
 
 function safeParse(text: string): ScormErrorBody | undefined {

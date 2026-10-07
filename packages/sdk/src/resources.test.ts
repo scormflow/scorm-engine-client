@@ -81,4 +81,36 @@ describe('ResourceClient', () => {
     const rc = new ResourceClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
     await expect(rc.getCourse('missing')).rejects.toMatchObject({ status: 404, code: 'course_not_found' });
   });
+
+  describe('health and readiness', () => {
+    it('reads liveness and the engine version', async () => {
+      const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ status: 'ok', version: '0.0.1' }));
+      const rc = new ResourceClient({ baseUrl: 'https://x/api/v1', fetch: fetchMock });
+      await expect(rc.getHealth()).resolves.toEqual({ status: 'ok', version: '0.0.1' });
+      expect(fetchMock.mock.calls[0]![0]).toBe('https://x/api/v1/health');
+    });
+
+    it('returns the report when ready', async () => {
+      const report = { status: 'ready', checks: { database: 'ok', storage: 'ok' } };
+      const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(report));
+      const rc = new ResourceClient({ baseUrl: 'https://x/api/v1', fetch: fetchMock });
+      await expect(rc.getReadiness()).resolves.toEqual(report);
+      expect(fetchMock.mock.calls[0]![0]).toBe('https://x/api/v1/ready');
+    });
+
+    it('resolves a 503 report without retrying', async () => {
+      const report = { status: 'not_ready', checks: { database: 'ok', storage: 'error' } };
+      const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(report, 503));
+      // Client-wide retries are on; a probe must still make exactly one call.
+      const rc = new ResourceClient({ baseUrl: 'https://x/api/v1', fetch: fetchMock, retries: 3, retryBaseMs: 1 });
+      await expect(rc.getReadiness()).resolves.toEqual(report);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('still throws on a 503 that is not a readiness report', async () => {
+      const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ code: 'unavailable', message: 'proxy down' }, 503));
+      const rc = new ResourceClient({ baseUrl: 'https://x/api/v1', fetch: fetchMock });
+      await expect(rc.getReadiness()).rejects.toMatchObject({ status: 503, code: 'unavailable' });
+    });
+  });
 });
