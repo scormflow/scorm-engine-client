@@ -1,4 +1,4 @@
-import type { CommitResult, ScormTransport, ScormVersion } from '@scormflow/sdk';
+import type { CommitResult, RuntimeState, ScormTransport, ScormVersion } from '@scormflow/sdk';
 
 import { CmiStore } from './cmi-store.js';
 
@@ -58,12 +58,12 @@ export class RuntimeCore {
   /** Hydrate a runtime from the engine's current attempt state. */
   static async create(opts: RuntimeCoreOptions): Promise<RuntimeCore> {
     const state = await opts.transport.initialize(opts.attemptId);
-    return new RuntimeCore(opts, state.version, state.cmi ?? {});
+    return new RuntimeCore(opts, state.version, { ...(state.cmi ?? {}), ...launchContext(state) });
   }
 
-  /** SCORM-native entry snapshot value, e.g. for `cmi.core.entry`. */
+  /** True when the transport launched this attempt as a resume (`cmi.entry` / `cmi.core.entry`). */
   get isResume(): boolean {
-    return this.store.count('cmi.objectives') > 0 || this.store.snapshot()['cmi.location'] !== undefined;
+    return this.store.get(launchKeys(this.version).entry) === 'resume';
   }
 
   /** Schedule a debounced background commit after a write. No-op if disabled. */
@@ -133,4 +133,27 @@ export class RuntimeCore {
       this.timer = undefined;
     }
   }
+}
+
+/** The edition's CMI paths for the read-only launch elements. */
+function launchKeys(version: ScormVersion): { entry: string; learnerId: string; learnerName: string } {
+  return version === 'SCORM_1_2'
+    ? { entry: 'cmi.core.entry', learnerId: 'cmi.core.student_id', learnerName: 'cmi.core.student_name' }
+    : { entry: 'cmi.entry', learnerId: 'cmi.learner_id', learnerName: 'cmi.learner_name' };
+}
+
+/**
+ * The read-only launch elements the transport reports outside the CMI
+ * snapshot. Content checks `entry` to decide whether to restore its location
+ * and suspend_data, so they are seeded into the store (never marked dirty).
+ */
+function launchContext(state: RuntimeState): Record<string, string> {
+  const keys = launchKeys(state.version);
+  const out: Record<string, string> = {};
+  if (state.entry !== undefined) out[keys.entry] = state.entry;
+  if (state.learner) {
+    out[keys.learnerId] = state.learner.id;
+    out[keys.learnerName] = state.learner.name ?? state.learner.id;
+  }
+  return out;
 }

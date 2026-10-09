@@ -46,6 +46,46 @@ describe('RuntimeCore', () => {
     expect(core.store.get('cmi.location')).toBe('page-3');
   });
 
+  it('seeds entry and learner from the runtime state without marking them dirty', async () => {
+    const transport: ScormTransport = {
+      async initialize() {
+        return {
+          attemptId: 'a1',
+          version: 'SCORM_2004_4',
+          cmi: { 'cmi.suspend_data': 'page=4' },
+          entry: 'resume',
+          learner: { id: 'u1', name: 'Ada' },
+        };
+      },
+      async commit() {
+        return { ok: true };
+      },
+      async terminate() {},
+    };
+    const core = await RuntimeCore.create({ attemptId: 'a1', transport, autoCommitMs: 0 });
+    expect(core.store.get('cmi.entry')).toBe('resume');
+    expect(core.store.get('cmi.learner_id')).toBe('u1');
+    expect(core.store.get('cmi.learner_name')).toBe('Ada');
+    expect(core.store.get('cmi.suspend_data')).toBe('page=4');
+    expect(core.isResume).toBe(true);
+    expect(core.store.hasDirty()).toBe(false);
+  });
+
+  it('uses the SCORM 1.2 launch elements for 1.2 content', async () => {
+    const { transport } = fakeTransport({ version: 'SCORM_1_2' });
+    const withEntry: ScormTransport = {
+      ...transport,
+      async initialize() {
+        return { attemptId: 'a1', version: 'SCORM_1_2', cmi: {}, entry: 'ab-initio', learner: { id: 'u2' } };
+      },
+    };
+    const core = await RuntimeCore.create({ attemptId: 'a1', transport: withEntry, autoCommitMs: 0 });
+    expect(core.store.get('cmi.core.entry')).toBe('ab-initio');
+    expect(core.store.get('cmi.core.student_id')).toBe('u2');
+    expect(core.store.get('cmi.core.student_name')).toBe('u2');
+    expect(core.isResume).toBe(false);
+  });
+
   it('commits only dirty values and clears them', async () => {
     const { transport, calls } = fakeTransport();
     const core = await RuntimeCore.create({ attemptId: 'a1', transport, autoCommitMs: 0 });
