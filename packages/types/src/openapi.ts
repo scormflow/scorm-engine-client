@@ -11,31 +11,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Liveness probe */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Engine is alive */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            /** @enum {string} */
-                            status?: "ok";
-                            version?: string;
-                        };
-                    };
-                };
-            };
-        };
+        /**
+         * Liveness probe
+         * @description Also served at the server root as `GET /healthz` for load balancers and
+         *     container health checks.
+         */
+        get: operations["getHealth"];
         put?: never;
         post?: never;
         delete?: never;
@@ -51,32 +32,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Readiness probe (DB + storage reachable) */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Ready */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Not ready */
-                503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        /**
+         * Readiness probe (DB + storage reachable)
+         * @description Runs a trivial database query and the storage driver's own probe (a
+         *     writable directory for `local`, `HeadBucket` for `s3`). Each check has a
+         *     3 s budget. Failure details are logged, not returned. Also served at the
+         *     server root as `GET /readyz`.
+         */
+        get: operations["getReadiness"];
         put?: never;
         post?: never;
         delete?: never;
@@ -106,7 +69,16 @@ export interface paths {
                     /** @description Attempt JWT (issued by `/auth/attempt-token`). */
                     token: string;
                     theme?: "light" | "dark" | "auto";
-                    /** @description Optional — override the default SCO. */
+                    /**
+                     * @description Where the SCO content comes from. `engine` (default) serves the
+                     *     uploaded package via `/courses/{id}/content/*` (and sets an auth
+                     *     cookie so sub-resources authenticate). `external` embeds the URL in
+                     *     `src` instead.
+                     */
+                    source?: "engine" | "external";
+                    /** @description Absolute SCO entry URL. Required when `source=external`. */
+                    src?: string;
+                    /** @description Optional — override the default SCO (engine source only). */
                     scoId?: string;
                 };
                 header?: never;
@@ -126,7 +98,26 @@ export interface paths {
                         "text/html": string;
                     };
                 };
+                /** @description Missing content source (e.g. source=external without src). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 401: components["responses"]["Unauthorized"];
+                /** @description Token is not valid for this attempt. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
             };
         };
         put?: never;
@@ -514,6 +505,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/courses/{courseId}/content/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+                /** @description File path within the extracted package (e.g. `index.html`, `assets/app.js`). */
+                path: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Stream an extracted package file (engine-hosted content)
+         * @description Serves a file from an uploaded course's extracted package. Used by the
+         *     engine-hosted player.
+         *
+         *     Auth is dual: a tenant **API key** (server-side), or an **attempt token**
+         *     scoped to an attempt on this course — supplied as a bearer token, `?token=`,
+         *     or the `sf_attempt` cookie the `/play` page sets so the SCO's relative
+         *     sub-resource requests authenticate automatically.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    courseId: components["parameters"]["CourseId"];
+                    /** @description File path within the extracted package (e.g. `index.html`, `assets/app.js`). */
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The requested file. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": string;
+                    };
+                };
+                /** @description Invalid path (e.g. traversal attempt). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/courses/validate": {
         parameters: {
             query?: never;
@@ -704,6 +760,8 @@ export interface paths {
          *     CMI, otherwise `ab-initio`. This is the read side of the runtime loop; use
          *     the start-attempt response for the initial launch and this endpoint to
          *     re-fetch state (e.g. after a reload) without creating a new attempt.
+         *
+         *     Auth is dual: a tenant API key, or an attempt token scoped to this attempt.
          */
         get: {
             parameters: {
@@ -723,6 +781,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["RuntimeState"];
+                    };
+                };
+                /** @description Token is not valid for this attempt. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
                 404: components["responses"]["NotFound"];
@@ -775,6 +842,9 @@ export interface paths {
          *
          *     Either way the commit as a whole succeeds; inspect `errors`/`warnings` for
          *     per-element detail, not for retry control flow.
+         *
+         *     Auth is dual: a tenant API key (server-side), or an attempt token scoped
+         *     to this attempt (browser player).
          */
         post: {
             parameters: {
@@ -800,6 +870,15 @@ export interface paths {
                         "application/json": components["schemas"]["CommitResponse"];
                     };
                 };
+                /** @description Token is not valid for this attempt. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
                 404: components["responses"]["NotFound"];
                 /** @description Attempt already finished. */
                 409: {
@@ -812,6 +891,38 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attempts/{attemptId}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reconcile an offline commit queue
+         * @description Replays commits a player recorded while offline, in `seq` order, through
+         *     the same validation and persistence as `POST /attempts/{id}/commit`.
+         *
+         *     Reconciliation is idempotent: commits at or below the attempt's
+         *     `lastCommitSeq` (or repeated within the batch) are reported as
+         *     `duplicate` and skipped, so a client can resend its whole queue after a
+         *     dropped response. Once the attempt is finished — by a terminate in this
+         *     batch or earlier — every later commit is reported as `conflict`; server
+         *     state wins. Per-commit outcomes are returned rather than failing the batch.
+         *
+         *     Auth matches the commit endpoint (API key or attempt token).
+         */
+        post: operations["syncAttemptCommits"];
         delete?: never;
         options?: never;
         head?: never;
@@ -934,6 +1045,1774 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/xapi/about": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * xAPI versions this LRS implements
+         * @description Unauthenticated, and exempt from the version header — this is how a client discovers what we speak.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description About document */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["XapiAbout"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/statements": {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Query statements
+         * @description With `statementId` or `voidedStatementId` the response is a single
+         *     statement; otherwise it is a StatementResult envelope. The two id
+         *     parameters cannot be combined with any filter.
+         *
+         *     Voided statements are excluded from filtered results and are reachable
+         *     only through `voidedStatementId`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    statementId?: string;
+                    voidedStatementId?: string;
+                    /** @description JSON-encoded Agent or Group. */
+                    agent?: string;
+                    verb?: string;
+                    activity?: string;
+                    registration?: string;
+                    /** @description Also match the activity in context activities, not just as the object. */
+                    related_activities?: boolean;
+                    /** @description Also match the agent as instructor, team, object or authority. */
+                    related_agents?: boolean;
+                    since?: string;
+                    until?: string;
+                    /** @description 0 means "as many as the LRS allows" (100). */
+                    limit?: number;
+                    ascending?: boolean;
+                    format?: "ids" | "exact" | "canonical";
+                    /** @description Opaque paging token; supplied by the `more` link, never constructed by hand. */
+                    cursor?: string;
+                    /**
+                     * @description Respond with `multipart/mixed`: the usual JSON first, then the stored
+                     *     body of every attachment the returned statements reference.
+                     */
+                    attachments?: boolean;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A StatementResult, or a single statement when queried by id. */
+                200: {
+                    headers: {
+                        "X-Experience-API-Consistent-Through"?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["XapiStatementResult"] | components["schemas"]["XapiStatement"];
+                        "multipart/mixed": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** Store a single statement under a known id */
+        put: {
+            parameters: {
+                query: {
+                    statementId: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["XapiStatement"];
+                    "multipart/mixed": string;
+                };
+            };
+            responses: {
+                /** @description Stored. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description A different statement is already stored under this id. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Store one statement or a batch
+         * @description Statements are immutable. Re-sending a byte-identical statement under an
+         *     id already stored is a no-op (safe retry); sending a *different* statement
+         *     under that id is a `409`.
+         *
+         *     To include attachment bodies, send `multipart/mixed` with the statement
+         *     JSON as the first part. Every declared attachment without a `fileUrl`
+         *     must have its body in the request, and every body must be declared;
+         *     otherwise the request is a `400` (`missing_attachment`,
+         *     `unexpected_attachment`, `attachment_hash_mismatch`, `invalid_signature`).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["XapiStatement"] | components["schemas"]["XapiStatement"][];
+                    "multipart/mixed": string;
+                };
+            };
+            responses: {
+                /** @description Ids of the stored statements, in request order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string[];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Sent with a cmi5 session token, and a statement breaks a cmi5 statement rule (`cmi5_rule_violation`). */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description A different statement is already stored under one of these ids. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/activities/state": {
+        parameters: {
+            query: {
+                activityId: string;
+                /** @description JSON-encoded Agent or Group. */
+                agent: string;
+                registration?: string;
+                /** @description Omit on GET to list ids, or on DELETE to clear every document. */
+                stateId?: string;
+            };
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch a state document, or list the ids of all of them */
+        get: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    registration?: string;
+                    /** @description Omit on GET to list ids, or on DELETE to clear every document. */
+                    stateId?: string;
+                    /** @description When listing, only ids updated after this instant. */
+                    since?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The document (its own content type), or a JSON array of state ids. */
+                200: {
+                    headers: {
+                        ETag?: string;
+                        "Last-Modified"?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": string[] | {
+                            [key: string]: unknown;
+                        };
+                        "application/octet-stream": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** Replace a state document */
+        put: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    registration?: string;
+                    /** @description Omit on GET to list ids, or on DELETE to clear every document. */
+                    stateId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                    "application/octet-stream": string;
+                };
+            };
+            responses: {
+                /** @description Stored. */
+                204: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Document exists and `XAPI_REQUIRE_PRECONDITIONS` is on, but no If-Match/If-None-Match was sent. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description If-Match or If-None-Match precondition failed. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        /**
+         * Merge into a state document
+         * @description Both the stored and the posted document must be JSON objects; anything else is a 400 rather than a silent overwrite.
+         */
+        post: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    registration?: string;
+                    /** @description Omit on GET to list ids, or on DELETE to clear every document. */
+                    stateId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Merged. */
+                204: {
+                    headers: {
+                        ETag?: string;
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Precondition failed. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        /** Delete one state document, or every document for an activity + agent */
+        delete: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    registration?: string;
+                    /** @description Omit on GET to list ids, or on DELETE to clear every document. */
+                    stateId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Precondition failed. */
+                412: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/activities/profile": {
+        parameters: {
+            query: {
+                activityId: string;
+                /** @description Omit on GET to list the ids of every profile for this activity. */
+                profileId?: string;
+            };
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch an activity profile document, or list the ids of all of them */
+        get: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description Omit on GET to list the ids of every profile for this activity. */
+                    profileId?: string;
+                    /** @description When listing document ids, only those updated after this instant. */
+                    since?: components["parameters"]["XapiDocumentSince"];
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["XapiDocument"];
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** Replace an activity profile document */
+        put: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description Omit on GET to list the ids of every profile for this activity. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["XapiDocument"];
+            responses: {
+                204: components["responses"]["XapiDocumentStored"];
+                400: components["responses"]["BadRequest"];
+                409: components["responses"]["XapiPreconditionRequired"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        /**
+         * Merge into an activity profile document
+         * @description Both the stored and the posted document must be JSON objects; anything else is a 400 rather than a silent overwrite.
+         */
+        post: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description Omit on GET to list the ids of every profile for this activity. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                204: components["responses"]["XapiDocumentStored"];
+                400: components["responses"]["BadRequest"];
+                409: components["responses"]["XapiPreconditionRequired"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        /** Delete an activity profile document */
+        delete: {
+            parameters: {
+                query: {
+                    activityId: string;
+                    /** @description Omit on GET to list the ids of every profile for this activity. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/agents/profile": {
+        parameters: {
+            query: {
+                /** @description JSON-encoded Agent or Group. */
+                agent: string;
+                /** @description Omit on GET to list the ids of every profile for this agent. */
+                profileId?: string;
+            };
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** Fetch an agent profile document, or list the ids of all of them */
+        get: {
+            parameters: {
+                query: {
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    /** @description Omit on GET to list the ids of every profile for this agent. */
+                    profileId?: string;
+                    /** @description When listing document ids, only those updated after this instant. */
+                    since?: components["parameters"]["XapiDocumentSince"];
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["XapiDocument"];
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** Replace an agent profile document */
+        put: {
+            parameters: {
+                query: {
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    /** @description Omit on GET to list the ids of every profile for this agent. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["XapiDocument"];
+            responses: {
+                204: components["responses"]["XapiDocumentStored"];
+                400: components["responses"]["BadRequest"];
+                409: components["responses"]["XapiPreconditionRequired"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        /**
+         * Merge into an agent profile document
+         * @description Both the stored and the posted document must be JSON objects; anything else is a 400 rather than a silent overwrite.
+         */
+        post: {
+            parameters: {
+                query: {
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    /** @description Omit on GET to list the ids of every profile for this agent. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                204: components["responses"]["XapiDocumentStored"];
+                400: components["responses"]["BadRequest"];
+                409: components["responses"]["XapiPreconditionRequired"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        /** Delete an agent profile document */
+        delete: {
+            parameters: {
+                query: {
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                    /** @description Omit on GET to list the ids of every profile for this agent. */
+                    profileId?: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                400: components["responses"]["BadRequest"];
+                412: components["responses"]["XapiPreconditionFailed"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/activities": {
+        parameters: {
+            query: {
+                activityId: string;
+            };
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The canonical Activity for an IRI
+         * @description Derived from the statements this LRS has accepted — we keep no separate
+         *     activity registry. The returned definition is the merge of every
+         *     definition clients have sent for that IRI, newest winning.
+         */
+        get: {
+            parameters: {
+                query: {
+                    activityId: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The activity. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["XapiActivity"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description No stored statement references this activity. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/xapi/agents": {
+        parameters: {
+            query: {
+                /** @description JSON-encoded Agent or Group. */
+                agent: string;
+            };
+            header: {
+                /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Person this LRS knows for an agent
+         * @description A Person is an Agent whose identifying properties are arrays — everything
+         *     the LRS has seen for one inverse-functional identifier. An agent with no
+         *     statements on file still returns a Person carrying the IFI you asked for.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description JSON-encoded Agent or Group. */
+                    agent: string;
+                };
+                header: {
+                    /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+                    "X-Experience-API-Version": components["parameters"]["XapiVersion"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The person. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["XapiPerson"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/courses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List cmi5 courses */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Course list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5CourseListResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Import a cmi5 course
+         * @description Accepts a ZIP with `cmi5.xml` at its root (the engine hosts the files), or
+         *     a bare `cmi5.xml` whose AU urls are all absolute (content hosted elsewhere).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        file: string;
+                        /** @description Override the course title. */
+                        title?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Course imported */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5Course"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                /** @description Invalid package or course structure */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/courses/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate a cmi5 package without importing it */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Validation report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5ValidationReport"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/courses/{cmi5CourseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cmi5CourseId: string;
+            };
+            cookie?: never;
+        };
+        /** Get a cmi5 course */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    cmi5CourseId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Course */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5Course"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a cmi5 course, its registrations and hosted files */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    cmi5CourseId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register a learner for a cmi5 course */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Cmi5RegistrationRequest"];
+                };
+            };
+            responses: {
+                /** @description Registration created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5Registration"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/learner-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a learner's cmi5LearnerPreferences */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description JSON-encoded xAPI Agent. Either this or `learnerId`. */
+                    agent?: string;
+                    learnerId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Stored preferences */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5LearnerPreferences"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /**
+         * Set a learner's cmi5LearnerPreferences
+         * @description Replaces the learner's `cmi5LearnerPreferences` Agent Profile document.
+         *     It belongs to the learner, not a registration, so it applies to every
+         *     course they launch.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Cmi5LearnerPreferencesRequest"];
+                };
+            };
+            responses: {
+                /** @description Stored preferences */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5LearnerPreferences"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/registrations/{registrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                registrationId: string;
+            };
+            cookie?: never;
+        };
+        /** Registration progress, per AU */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    registrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Registration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5Registration"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/registrations/{registrationId}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                registrationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Launch an AU
+         * @description Abandons any session the learner left open on this AU, opens a new
+         *     session, writes the `LMS.LaunchData` state document, records `launched`,
+         *     and returns the launch URL.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    registrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Cmi5LaunchRequest"];
+                };
+            };
+            responses: {
+                /** @description Launch URL */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5LaunchResponse"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/registrations/{registrationId}/waive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                registrationId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Waive an AU's moveOn requirement */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    registrationId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["Cmi5WaiveRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated registration */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5Registration"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+                /** @description The AU is already satisfied. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/fetch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redeem a fetch URL for an LRS auth token (AU-facing)
+         * @description The `fetch` launch parameter points here. Each fetch URL works exactly
+         *     once; it carries its own one-time key, so no other credentials are needed.
+         */
+        post: {
+            parameters: {
+                query: {
+                    session: string;
+                    key: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Auth token */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5FetchResponse"];
+                    };
+                };
+                /** @description Fetch URL already redeemed, invalid, or expired */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Cmi5FetchError"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cmi5/content/{token}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Content token minted into the launch URL. */
+                token: string;
+                /** @description File path inside the package. */
+                path: string;
+            };
+            cookie?: never;
+        };
+        /** Stream a file from an engine-hosted cmi5 package (AU-facing) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Content token minted into the launch URL. */
+                    token: string;
+                    /** @description File path inside the package. */
+                    path: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description File contents */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": string;
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List webhook endpoints */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Endpoints, newest first */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["WebhookEndpoint"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        put?: never;
+        /**
+         * Register a webhook endpoint
+         * @description The response is the only time the signing `secret` is shown, apart from rotation.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointCreate"];
+                };
+            };
+            responses: {
+                /** @description Endpoint created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookEndpointWithSecret"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/event-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the event types an endpoint can subscribe to */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Event types */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["WebhookEventType"][];
+                            /**
+                             * @description Subscribes to every event, including ones added later.
+                             * @example *
+                             */
+                            wildcard: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{webhookId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        /** Get a webhook endpoint */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Endpoint */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookEndpoint"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        /** Delete a webhook endpoint and its delivery log */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        /** Update a webhook endpoint */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["WebhookEndpointUpdate"];
+                };
+            };
+            responses: {
+                /** @description Updated endpoint */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookEndpoint"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        trace?: never;
+    };
+    "/webhooks/{webhookId}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the signing secret
+         * @description The old secret stops working immediately.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Endpoint with its new secret */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookEndpointWithSecret"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{webhookId}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event
+         * @description Sends a `webhook.test` event to this endpoint only — even when it is
+         *     disabled or not subscribed — and answers once the first attempt is done.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The delivery, after its first attempt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookDelivery"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/{webhookId}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhookId: string;
+            };
+            cookie?: never;
+        };
+        /** The endpoint's delivery log, newest first */
+        get: {
+            parameters: {
+                query?: {
+                    status?: components["schemas"]["WebhookDeliveryStatus"];
+                    eventType?: string;
+                    limit?: number;
+                    /** @description The previous page's `nextCursor`. */
+                    before?: string;
+                };
+                header?: never;
+                path: {
+                    webhookId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deliveries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["WebhookDelivery"][];
+                            pagination: components["schemas"]["Pagination"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/deliveries/{deliveryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        /** Get one delivery */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    deliveryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Delivery */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookDelivery"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/webhooks/deliveries/{deliveryId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deliveryId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Re-send a delivery now
+         * @description Works in any state, including `FAILED` (the dead-letter state) and
+         *     `SUCCEEDED`. A manual retry gets one attempt; if it fails the delivery
+         *     goes back to `FAILED`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    deliveryId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The delivery, after the attempt */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WebhookDelivery"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -946,6 +2825,16 @@ export interface components {
                 [key: string]: unknown;
             };
             requestId?: string;
+        };
+        ReadinessReport: {
+            /** @enum {string} */
+            status: "ready" | "not_ready";
+            checks: {
+                /** @enum {string} */
+                database: "ok" | "error";
+                /** @enum {string} */
+                storage: "ok" | "error";
+            };
         };
         Pagination: {
             nextCursor?: string | null;
@@ -1077,6 +2966,11 @@ export interface components {
                 id: string;
                 name?: string | null;
             };
+            /**
+             * @description Highest client commit `seq` applied so far (null if no commit carried
+             *     one). Offline clients drop queued commits at or below it.
+             */
+            lastCommitSeq?: number | null;
         };
         StartAttemptResponse: {
             /** Format: uuid */
@@ -1127,16 +3021,42 @@ export interface components {
             } | string[][];
             /**
              * @description When true, Terminate the session (final commit) and finalize the
-             *     attempt instead of leaving it open for further commits.
+             *     attempt instead of leaving it open for further commits. If the
+             *     content set `cmi.exit` (`cmi.core.exit` in 1.2) to `suspend`,
+             *     only the session ends: the attempt stays `IN_PROGRESS`, its session
+             *     time is banked as `total_time`, and the next start resumes it.
              * @default false
              */
             terminate: boolean;
+            /**
+             * @description Optional client commit sequence number (strictly increasing per
+             *     attempt). A commit whose `seq` is at or below the attempt's
+             *     `lastCommitSeq` is acknowledged with `duplicate: true` and not
+             *     re-applied, making retries after a dropped response safe.
+             */
+            seq?: number;
+            /**
+             * Format: date-time
+             * @description When the client recorded the commit, if it was queued offline.
+             */
+            recordedAt?: string;
         };
         CommitResponse: {
             /** @description False only in strict mode when one or more writes were rejected. */
             ok: boolean;
             /** @description True when this commit finalized the attempt. */
             terminated: boolean;
+            /**
+             * @description True when a terminate with exit=suspend ended the session but left
+             *     the attempt open to resume.
+             */
+            suspended: boolean;
+            /**
+             * @description True when the request's `seq` was at or below the attempt's
+             *     `lastCommitSeq`: the commit had already been applied and nothing
+             *     was written. `summary` reflects the current state.
+             */
+            duplicate?: boolean;
             /** @description Writes rejected in strict mode (not persisted). Empty in lenient mode. */
             errors: components["schemas"]["CommitIssue"][];
             /**
@@ -1145,6 +3065,43 @@ export interface components {
              */
             warnings: components["schemas"]["CommitIssue"][];
             summary: components["schemas"]["RuntimeSummary"];
+        };
+        QueuedCommit: {
+            /** @description Client-assigned, strictly increasing per attempt. */
+            seq: number;
+            values: components["schemas"]["CommitRequest"]["values"];
+            /** @default false */
+            terminate: boolean;
+            /**
+             * Format: date-time
+             * @description When the client originally recorded the commit.
+             */
+            recordedAt?: string;
+        };
+        SyncRequest: {
+            commits: components["schemas"]["QueuedCommit"][];
+        };
+        SyncCommitOutcome: {
+            seq: number;
+            /**
+             * @description `applied`: persisted now. `duplicate`: already applied by an earlier
+             *     sync (safe to drop). `conflict`: the attempt was already finished,
+             *     so the commit can never apply (server state wins).
+             * @enum {string}
+             */
+            status: "applied" | "duplicate" | "conflict";
+            terminated: boolean;
+            suspended: boolean;
+            errors: components["schemas"]["CommitIssue"][];
+            warnings: components["schemas"]["CommitIssue"][];
+        };
+        SyncResponse: {
+            /** @description The attempt's highest applied `seq` after reconciliation. */
+            lastCommitSeq: number | null;
+            /** @description One outcome per submitted commit, in `seq` order. */
+            results: components["schemas"]["SyncCommitOutcome"][];
+            /** @description Rollup after the last applied or duplicate commit; null if every commit conflicted. */
+            summary: components["schemas"]["RuntimeSummary"] | null;
         };
         CommitIssue: {
             /** @description The CMI element the write targeted. */
@@ -1194,8 +3151,435 @@ export interface components {
             totalTimeSeconds?: number;
             recentAttempts?: components["schemas"]["Attempt"][];
         };
+        XapiAbout: {
+            version: string[];
+            extensions?: {
+                [key: string]: unknown;
+            };
+        };
+        /** @description RFC 5646 language tag → text. */
+        XapiLanguageMap: {
+            [key: string]: string;
+        };
+        XapiAccount: {
+            /** Format: iri */
+            homePage: string;
+            name: string;
+        };
+        /**
+         * @description An Agent carries exactly one inverse-functional identifier (`mbox`,
+         *     `mbox_sha1sum`, `openid` or `account`). A Group may carry none, in which
+         *     case it must list members and is identified by that member set.
+         */
+        XapiAgent: {
+            /** @enum {string} */
+            objectType?: "Agent" | "Group";
+            name?: string;
+            /** Format: mailto */
+            mbox?: string;
+            mbox_sha1sum?: string;
+            /** Format: iri */
+            openid?: string;
+            account?: components["schemas"]["XapiAccount"];
+            /** @description Group members only. */
+            member?: components["schemas"]["XapiAgent"][];
+        };
+        /**
+         * @description Everything this LRS knows about one agent. Unlike an Agent, each
+         *     identifying property is an *array* — the union of the values seen across
+         *     statements sharing that inverse-functional identifier.
+         */
+        XapiPerson: {
+            /** @enum {string} */
+            objectType: "Person";
+            name?: string[];
+            mbox?: string[];
+            mbox_sha1sum?: string[];
+            openid?: string[];
+            account?: components["schemas"]["XapiAccount"][];
+        };
+        XapiVerb: {
+            /** Format: iri */
+            id: string;
+            display?: components["schemas"]["XapiLanguageMap"];
+        };
+        XapiActivity: {
+            /** @enum {string} */
+            objectType?: "Activity";
+            /** Format: iri */
+            id: string;
+            definition?: {
+                [key: string]: unknown;
+            };
+        };
+        XapiStatementRef: {
+            /** @enum {string} */
+            objectType: "StatementRef";
+            /** Format: uuid */
+            id: string;
+        };
+        XapiScore: {
+            scaled?: number;
+            raw?: number;
+            min?: number;
+            max?: number;
+        };
+        XapiResult: {
+            score?: components["schemas"]["XapiScore"];
+            success?: boolean;
+            completion?: boolean;
+            response?: string;
+            /** @description ISO 8601 duration, e.g. `PT1H30M`. */
+            duration?: string;
+            extensions?: {
+                [key: string]: unknown;
+            };
+        };
+        XapiContext: {
+            /** Format: uuid */
+            registration?: string;
+            instructor?: components["schemas"]["XapiAgent"];
+            team?: components["schemas"]["XapiAgent"];
+            contextActivities?: {
+                [key: string]: unknown;
+            };
+            /** @description Only allowed when the object is an Activity. */
+            revision?: string;
+            /** @description Only allowed when the object is an Activity. */
+            platform?: string;
+            language?: string;
+            statement?: components["schemas"]["XapiStatementRef"];
+            extensions?: {
+                [key: string]: unknown;
+            };
+        };
+        XapiStatement: {
+            /**
+             * Format: uuid
+             * @description Assigned by the LRS when omitted.
+             */
+            id?: string;
+            actor: components["schemas"]["XapiAgent"];
+            verb: components["schemas"]["XapiVerb"];
+            /** @description An Activity, Agent, Group, StatementRef or SubStatement. */
+            object: components["schemas"]["XapiActivity"] | components["schemas"]["XapiAgent"] | components["schemas"]["XapiStatementRef"] | {
+                [key: string]: unknown;
+            };
+            result?: components["schemas"]["XapiResult"];
+            context?: components["schemas"]["XapiContext"];
+            /**
+             * Format: date-time
+             * @description Defaults to the time of storage.
+             */
+            timestamp?: string;
+            /** Format: date-time */
+            readonly stored?: string;
+            /** @description Always overwritten by the LRS with an agent identifying this tenant. */
+            readonly authority?: components["schemas"]["XapiAgent"];
+            readonly version?: string;
+            attachments?: components["schemas"]["XapiAttachment"][];
+        };
+        XapiAttachment: {
+            /**
+             * Format: iri
+             * @description Use `http://adlnet.gov/expapi/attachments/signature` for a JWS statement signature.
+             */
+            usageType: string;
+            display: {
+                [key: string]: string;
+            };
+            description?: {
+                [key: string]: string;
+            };
+            contentType: string;
+            length: number;
+            /** @description Hex SHA-2 digest of the body; matches the part's `X-Experience-API-Hash`. */
+            sha2: string;
+            /**
+             * Format: iri
+             * @description Where the body can be fetched; when set, the body need not be uploaded.
+             */
+            fileUrl?: string;
+        };
+        XapiStatementResult: {
+            statements: components["schemas"]["XapiStatement"][];
+            /** @description Relative URL of the next page, or an empty string when the result set is exhausted. */
+            more: string;
+        };
+        /** @enum {string} */
+        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "webhook.test";
+        WebhookEndpoint: {
+            id: string;
+            /** Format: uri */
+            url: string;
+            description: string | null;
+            /** @description Subscribed event types, or `["*"]` for all. */
+            events: string[];
+            enabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        WebhookEndpointWithSecret: components["schemas"]["WebhookEndpoint"] & {
+            /**
+             * @description HMAC-SHA256 signing secret. Store it; it is not shown again.
+             * @example whsec_3kq9…
+             */
+            secret: string;
+        };
+        WebhookEndpointCreate: {
+            /**
+             * Format: uri
+             * @description http(s) URL. Private / loopback addresses are refused unless `WEBHOOK_ALLOW_PRIVATE_URLS` is set.
+             */
+            url: string;
+            /** @description Event types (see `WebhookEventType`), or `*` for all. */
+            events: string[];
+            description?: string | null;
+            /** @default true */
+            enabled: boolean;
+        };
+        WebhookEndpointUpdate: {
+            /** Format: uri */
+            url?: string;
+            events?: string[];
+            description?: string | null;
+            enabled?: boolean;
+        };
+        /**
+         * @description `FAILED` is the dead-letter state: out of retries until retried by hand.
+         * @enum {string}
+         */
+        WebhookDeliveryStatus: "PENDING" | "SUCCEEDED" | "FAILED";
+        /** @description The JSON body of every delivery. */
+        WebhookPayload: {
+            /** @description Event id, the same on every endpoint's copy and every retry. Dedupe on it. */
+            id: string;
+            type: components["schemas"]["WebhookEventType"];
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * @description Event-specific. Attempt events carry `attemptId`, `courseId`, `scoId`,
+             *     `learnerId`, `completionStatus`, `successStatus`, `score` and
+             *     `totalTimeSeconds`; cmi5 events carry `registrationId`, `courseId`,
+             *     `actor`, and the `au` or `block` concerned.
+             */
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        WebhookDelivery: {
+            id: string;
+            endpointId: string;
+            eventId: string;
+            eventType: string;
+            status: components["schemas"]["WebhookDeliveryStatus"];
+            attempts: number;
+            /** Format: date-time */
+            nextAttemptAt: string | null;
+            /** Format: date-time */
+            lastAttemptAt: string | null;
+            lastStatusCode: number | null;
+            lastError: string | null;
+            /** @description Start of the receiver's last response body. */
+            lastResponse: string | null;
+            /** Format: date-time */
+            deliveredAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            payload: components["schemas"]["WebhookPayload"];
+        };
+        /** @enum {string} */
+        Cmi5MoveOn: "Passed" | "Completed" | "CompletedAndPassed" | "CompletedOrPassed" | "NotApplicable";
+        /** @enum {string} */
+        Cmi5LaunchMode: "Normal" | "Browse" | "Review";
+        Cmi5Au: {
+            /** @description Engine id of the AU. */
+            id: string;
+            /** @description AU id from the course structure (the publisher's IRI). */
+            publisherId: string;
+            /** @description Engine-generated activity IRI; the object of every cmi5 defined statement for this AU. */
+            activityId: string;
+            title: string;
+            description?: string | null;
+            /** @description AU url as declared — relative to the package root, or absolute. */
+            url: string;
+            /** @enum {string} */
+            launchMethod: "AnyWindow" | "OwnWindow";
+            moveOn: components["schemas"]["Cmi5MoveOn"];
+            masteryScore?: number | null;
+            activityType?: string | null;
+            launchParameters?: string | null;
+        };
+        /** @description An AU reference or a block, in course order. Blocks nest further nodes. */
+        Cmi5StructureNode: {
+            /** @enum {string} */
+            type: "au" | "block";
+            /** @description Publisher id of the AU or block. */
+            id: string;
+            /** @description Blocks only — engine-generated activity IRI, the object of the block's `satisfied` statement. */
+            activityId?: string;
+            title?: string;
+            description?: string | null;
+            children?: components["schemas"]["Cmi5StructureNode"][];
+        };
+        Cmi5Course: {
+            id: string;
+            /** @description Course id from the course structure. */
+            publisherId: string;
+            /** @description Engine-generated activity IRI used for course-level statements (`satisfied`). */
+            activityId: string;
+            title: string;
+            description?: string | null;
+            /** @description True when the engine stores the package files; false for a structure-only import. */
+            hosted: boolean;
+            aus: components["schemas"]["Cmi5Au"][];
+            structure: components["schemas"]["Cmi5StructureNode"][];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Cmi5CourseListResponse: {
+            data: components["schemas"]["Cmi5Course"][];
+            pagination: components["schemas"]["Pagination"];
+        };
+        Cmi5ValidationReport: {
+            valid: boolean;
+            errors: {
+                code: string;
+                message: string;
+            }[];
+            /** @description The parsed course structure, or null when invalid. */
+            structure?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** @description Identify the learner with either a full `actor` or a `learnerId`. */
+        Cmi5RegistrationRequest: {
+            courseId: string;
+            actor?: components["schemas"]["XapiAgent"];
+            /** @description Shorthand for an Agent account on `XAPI_AUTHORITY_HOMEPAGE`. */
+            learnerId?: string;
+            learnerName?: string;
+            /** @description Optional; replaces the learner's `cmi5LearnerPreferences` agent profile. */
+            learnerPreferences?: components["schemas"]["Cmi5LearnerPreferences"];
+        };
+        /** @description The `cmi5LearnerPreferences` Agent Profile document AUs read from the LRS. */
+        Cmi5LearnerPreferences: {
+            /**
+             * @description Comma-separated RFC 5646 language codes, most preferred first.
+             * @example fr-FR,en-US
+             */
+            languagePreference?: string;
+            /** @enum {string} */
+            audioPreference?: "on" | "off";
+        };
+        /** @description Identify the learner with either a full `actor` or a `learnerId`. Replaces the stored document. */
+        Cmi5LearnerPreferencesRequest: components["schemas"]["Cmi5LearnerPreferences"] & {
+            actor?: components["schemas"]["XapiAgent"];
+            learnerId?: string;
+            learnerName?: string;
+        };
+        Cmi5BlockProgress: {
+            publisherId: string;
+            title: string;
+            /** @description True once every AU and nested block in it is satisfied; the engine then records `satisfied` for the block. */
+            satisfied: boolean;
+            /** Format: date-time */
+            satisfiedAt: string | null;
+        };
+        Cmi5AuProgress: {
+            id: string;
+            publisherId: string;
+            title: string;
+            moveOn: components["schemas"]["Cmi5MoveOn"];
+            completed: boolean;
+            passed: boolean;
+            failed: boolean;
+            waived: boolean;
+            /** @description Whether the AU's moveOn criterion is met. */
+            satisfied: boolean;
+        };
+        Cmi5Registration: {
+            /**
+             * Format: uuid
+             * @description The xAPI `registration` every statement in this enrolment carries.
+             */
+            id: string;
+            courseId: string;
+            actor: components["schemas"]["XapiAgent"];
+            /** @description True once every AU's moveOn criterion is met; the engine then records `satisfied` for the course. */
+            satisfied: boolean;
+            /** Format: date-time */
+            satisfiedAt: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            aus: components["schemas"]["Cmi5AuProgress"][];
+            /** @description Every block in the course, in document order. */
+            blocks: components["schemas"]["Cmi5BlockProgress"][];
+        };
+        Cmi5LaunchRequest: {
+            /** @description Engine id or publisher id of the AU. */
+            auId: string;
+            /** @default Normal */
+            launchMode: components["schemas"]["Cmi5LaunchMode"];
+            /**
+             * Format: uri
+             * @description Written to LaunchData as `returnURL`.
+             */
+            returnUrl?: string;
+        };
+        Cmi5LaunchResponse: {
+            /**
+             * Format: uri
+             * @description The AU launch URL, carrying `endpoint`, `fetch`, `actor`, `registration`
+             *     and `activityId`. Open it in a new window when `launchMethod` is
+             *     `OwnWindow`; otherwise an iframe works too.
+             */
+            url: string;
+            /** Format: uuid */
+            sessionId: string;
+            launchMode: components["schemas"]["Cmi5LaunchMode"];
+            /** @enum {string} */
+            launchMethod: "AnyWindow" | "OwnWindow";
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        Cmi5WaiveRequest: {
+            auId: string;
+            /** @enum {string} */
+            reason: "Tested Out" | "Equivalent AU" | "Equivalent Outside Activity" | "Administrative";
+        };
+        Cmi5FetchResponse: {
+            /** @description Send as `Authorization: Basic <auth-token>` on every LRS call. */
+            "auth-token": string;
+        };
+        Cmi5FetchError: {
+            /**
+             * @description `1` already redeemed, `2` invalid or expired, `3` general error.
+             * @enum {string}
+             */
+            "error-code": "1" | "2" | "3";
+            "error-text": string;
+        };
     };
     responses: {
+        /** @description The tenant has exhausted its request budget for the current window; the request was not processed. */
+        TooManyRequests: {
+            headers: {
+                /** @description Seconds to wait before retrying. */
+                "Retry-After"?: number;
+                "X-RateLimit-Limit": components["headers"]["RateLimitLimit"];
+                "X-RateLimit-Remaining": components["headers"]["RateLimitRemaining"];
+                "X-RateLimit-Reset": components["headers"]["RateLimitReset"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description Request was malformed. */
         BadRequest: {
             headers: {
@@ -1223,6 +3607,46 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description The document (in its own content type), or a JSON array of document ids. */
+        XapiDocument: {
+            headers: {
+                ETag?: string;
+                "Last-Modified"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": string[] | {
+                    [key: string]: unknown;
+                };
+                "application/octet-stream": string;
+            };
+        };
+        /** @description Stored. */
+        XapiDocumentStored: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content?: never;
+        };
+        /** @description Document exists and `XAPI_REQUIRE_PRECONDITIONS` is on, but no If-Match/If-None-Match was sent. */
+        XapiPreconditionRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description If-Match or If-None-Match precondition failed. */
+        XapiPreconditionFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
     };
     parameters: {
         CourseId: string;
@@ -1230,10 +3654,130 @@ export interface components {
         Limit: number;
         /** @description Opaque pagination cursor returned by the previous page. */
         Cursor: string;
+        /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */
+        XapiVersion: string;
+        /** @description When listing document ids, only those updated after this instant. */
+        XapiDocumentSince: string;
     };
-    requestBodies: never;
-    headers: never;
+    requestBodies: {
+        /** @description An opaque document body — JSON, text or binary. */
+        XapiDocument: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+                "application/octet-stream": string;
+            };
+        };
+    };
+    headers: {
+        /** @description Requests the tenant may make per window. Present only when rate limiting is on. */
+        RateLimitLimit: number;
+        /** @description Requests left in the current window. */
+        RateLimitRemaining: number;
+        /** @description Seconds until the current window ends and the budget refills. */
+        RateLimitReset: number;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export type operations = Record<string, never>;
+export interface operations {
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Engine is alive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "ok";
+                        version: string;
+                    };
+                };
+            };
+        };
+    };
+    getReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ready */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessReport"];
+                };
+            };
+            /** @description Not ready — at least one dependency check failed */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadinessReport"];
+                };
+            };
+        };
+    };
+    syncAttemptCommits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SyncRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-commit reconciliation outcomes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncResponse"];
+                };
+            };
+            /** @description Malformed queue (missing/negative `seq`, bad `recordedAt`, empty or oversized batch). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Token is not valid for this attempt. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+}

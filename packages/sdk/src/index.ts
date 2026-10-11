@@ -14,12 +14,15 @@ export type {
 export {
   ScormError,
   ScormHttpError,
+  ScormRateLimitError,
   ScormNetworkError,
   ScormTimeoutError,
   ScormAbortError,
   isRetryableStatus,
 } from './errors.js';
 export type { ScormErrorBody } from './errors.js';
+export { parseRateLimit } from './http/retry.js';
+export type { RateLimitInfo } from './http/retry.js';
 
 export { HttpClient } from './http/http-client.js';
 export type { HttpClientOptions, HttpRequest, FetchLike, TokenProvider } from './http/http-client.js';
@@ -40,7 +43,107 @@ export type {
   CourseAnalytics,
   LearnerAnalytics,
   UploadCourseOptions,
+  EngineHealth,
+  ReadinessReport,
+  ReadinessCheckStatus,
 } from './resources.js';
+
+export { XapiClient, createXapiClient, XAPI_VERSION } from './xapi.js';
+export type {
+  XapiClientOptions,
+  XapiAbout,
+  XapiActivity,
+  XapiAgent,
+  XapiDocument,
+  XapiDocumentApi,
+  XapiFormat,
+  XapiPerson,
+  XapiProfileKey,
+  XapiStatement,
+  XapiStatementQuery,
+  XapiStatementResult,
+  XapiStateKey,
+  XapiStateScope,
+  XapiStoreOptions,
+  XapiWriteOptions,
+  XapiWriteResult,
+} from './xapi.js';
+export {
+  decodeMultipart,
+  decodeStatementResponse,
+  encodeMultipart,
+  encodeStatementUpload,
+  prepareXapiAttachment,
+  sha256Hex,
+  XAPI_SIGNATURE_USAGE_TYPE,
+} from './xapi-attachments.js';
+export type {
+  MultipartPart,
+  XapiAttachment,
+  XapiAttachmentBody,
+  XapiAttachmentInput,
+} from './xapi-attachments.js';
+
+export {
+  Cmi5AuSession,
+  Cmi5Client,
+  Cmi5Error,
+  CMI5_CATEGORY,
+  CMI5_LEARNER_PREFERENCES_PROFILE_ID,
+  CMI5_SESSION_EXTENSION,
+  CMI5_VERBS,
+  parseCmi5Launch,
+} from './cmi5.js';
+export type {
+  Cmi5Au,
+  Cmi5AuProgress,
+  Cmi5AuSessionOptions,
+  Cmi5AuStatus,
+  Cmi5BlockProgress,
+  Cmi5Course,
+  Cmi5CourseList,
+  Cmi5LaunchData,
+  Cmi5LaunchMethod,
+  Cmi5LaunchMode,
+  Cmi5LaunchParams,
+  Cmi5LaunchRequest,
+  Cmi5LaunchResult,
+  Cmi5Learner,
+  Cmi5LearnerPreferences,
+  Cmi5MoveOn,
+  Cmi5Registration,
+  Cmi5RegistrationRequest,
+  Cmi5Score,
+  Cmi5StructureNode,
+  Cmi5ValidationReport,
+  Cmi5WaiveReason,
+} from './cmi5.js';
+
+export {
+  constructWebhookEvent,
+  verifyWebhookSignature,
+  WEBHOOK_DELIVERY_HEADER,
+  WEBHOOK_EVENT_HEADER,
+  WEBHOOK_SIGNATURE_HEADER,
+  WebhookSignatureError,
+  WebhooksClient,
+} from './webhooks.js';
+export type {
+  CreateWebhookRequest,
+  ObjectiveMasteredEventData,
+  UpdateWebhookRequest,
+  VerifyWebhookOptions,
+  WebhookDelivery,
+  WebhookDeliveryList,
+  WebhookDeliveryQuery,
+  WebhookDeliveryStatus,
+  WebhookEndpoint,
+  WebhookEndpointWithSecret,
+  WebhookEventType,
+  WebhookPayload,
+  WebhookSubscription,
+  XapiStatementStoredEventData,
+} from './webhooks.js';
 
 export { ScormClient, createScormClient } from './client.js';
 export type {
@@ -56,4 +159,15 @@ export type {
   RestTransportOptions,
   StartAttemptRequest,
   StartAttemptResult,
+  SyncCommit,
+  SyncCommitOutcome,
+  SyncCommitStatus,
+  SyncResult,
 } from './transports/rest.js';
+
+export { OfflineTransport, isOfflineError } from './transports/offline.js';
+export type {
+  FlushResult,
+  OfflineTransportOptions,
+  SyncCapableTransport,
+} from './transports/offline.js';

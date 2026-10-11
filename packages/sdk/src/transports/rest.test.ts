@@ -90,6 +90,15 @@ describe('RestTransport', () => {
     });
   });
 
+  it('reports a suspend (terminate with exit=suspend) from the commit response', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      jsonResponse({ ok: true, terminated: false, suspended: true, errors: [], warnings: [] }),
+    );
+    const t = new RestTransport({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+    const result = await t.commit('a1', { 'cmi.exit': 'suspend' });
+    expect(result).toEqual({ ok: true, terminated: false, suspended: true });
+  });
+
   it('surfaces warnings and errors from the commit response', async () => {
     const fetchMock = vi.fn<FetchLike>(async () =>
       jsonResponse({
@@ -126,5 +135,49 @@ describe('RestTransport', () => {
       values: { 'cmi.core.lesson_status': 'completed' },
       terminate: true,
     });
+  });
+
+  it('sends seq/recordedAt on commit and surfaces duplicate acknowledgements', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ ok: true, terminated: false, duplicate: true }));
+    const t = new RestTransport({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+    const result = await t.commit('a1', { 'cmi.location': 'p' }, { seq: 7, recordedAt: '2026-10-11T09:00:00Z' });
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body as string)).toEqual({
+      values: { 'cmi.location': 'p' },
+      terminate: false,
+      seq: 7,
+      recordedAt: '2026-10-11T09:00:00Z',
+    });
+    expect(result.duplicate).toBe(true);
+  });
+
+  it('reads lastCommitSeq from the runtime state', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      jsonResponse({ attemptId: 'a1', version: 'SCORM_1_2', cmi: {}, lastCommitSeq: 12 }),
+    );
+    const t = new RestTransport({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+    expect((await t.initialize('a1')).lastCommitSeq).toBe(12);
+  });
+
+  it('reconciles an offline queue via POST /attempts/:id/sync', async () => {
+    const response = {
+      lastCommitSeq: 2,
+      results: [
+        { seq: 1, status: 'duplicate', terminated: false, suspended: false, errors: [], warnings: [] },
+        { seq: 2, status: 'applied', terminated: false, suspended: false, errors: [], warnings: [] },
+      ],
+      summary: null,
+    };
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(response));
+    const t = new RestTransport({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+    const commits = [
+      { seq: 1, values: { 'cmi.location': 'a' } },
+      { seq: 2, values: { 'cmi.location': 'b' }, recordedAt: '2026-10-11T09:00:00Z' },
+    ];
+    const result = await t.sync('a 1', commits);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://x/v1/attempts/a%201/sync');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({ commits });
+    expect(result).toEqual(response);
   });
 });

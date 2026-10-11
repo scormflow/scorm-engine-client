@@ -24,6 +24,11 @@ export interface RuntimeState {
   cmi: Record<string, unknown>;
   learner?: ScormLearner;
   entry?: ScormEntry;
+  /**
+   * Highest client commit `seq` the engine has applied (offline sync), or null
+   * when no commit carried one. Absent for transports that do not track it.
+   */
+  lastCommitSeq?: number | null;
 }
 
 export interface CommitOptions {
@@ -33,6 +38,14 @@ export interface CommitOptions {
    * transport lets the server derive session time from `cmi.session_time`.
    */
   sessionTimeDeltaSeconds?: number;
+  /**
+   * Client commit sequence number (strictly increasing per attempt). The engine
+   * acknowledges a commit at or below its last applied `seq` as a duplicate
+   * instead of re-applying it, so retries are safe.
+   */
+  seq?: number;
+  /** When the commit was originally recorded, if it was queued offline. */
+  recordedAt?: string;
   signal?: AbortSignal;
 }
 
@@ -69,6 +82,11 @@ export interface CommitResult {
   ok: boolean;
   /** True when the commit finalized the attempt. */
   terminated?: boolean;
+  /**
+   * True when a terminate with exit=suspend ended the session but left the
+   * attempt open; the next start resumes it.
+   */
+  suspended?: boolean;
   /** Rejected writes (strict mode). */
   errors?: CommitIssue[];
   /** Accepted-but-nonconformant writes (lenient mode). */
@@ -77,6 +95,14 @@ export interface CommitResult {
   summary?: RuntimeSummary;
   /** Local transports stamp a commit time; the REST engine does not. */
   committedAt?: string;
+  /** True when the engine had already applied this commit's `seq`; nothing was written. */
+  duplicate?: boolean;
+  /**
+   * True when the commit could not reach the engine and was stored in the
+   * offline queue ({@link import('./transports/offline.js').OfflineTransport});
+   * it is delivered on the next successful flush.
+   */
+  queued?: boolean;
 }
 
 export interface TerminateOptions {

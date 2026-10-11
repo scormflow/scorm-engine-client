@@ -41,6 +41,38 @@ export interface StartAttemptResult {
   cmi: Record<string, unknown>;
 }
 
+/** One queued commit sent to {@link RestTransport.sync}. */
+export interface SyncCommit {
+  /** Client-assigned, strictly increasing per attempt. */
+  seq: number;
+  values: Record<string, unknown>;
+  terminate?: boolean;
+  /** ISO 8601 time the commit was recorded. */
+  recordedAt?: string;
+}
+
+/** How the engine reconciled one queued commit. */
+export type SyncCommitStatus = 'applied' | 'duplicate' | 'conflict';
+
+export interface SyncCommitOutcome {
+  seq: number;
+  status: SyncCommitStatus;
+  terminated: boolean;
+  suspended: boolean;
+  errors: CommitIssue[];
+  warnings: CommitIssue[];
+}
+
+/** Response from {@link RestTransport.sync}. */
+export interface SyncResult {
+  /** The attempt's highest applied `seq` after reconciliation. */
+  lastCommitSeq: number | null;
+  /** One outcome per submitted commit, in `seq` order. */
+  results: SyncCommitOutcome[];
+  /** Rollup after the last applied or duplicate commit; null if all conflicted. */
+  summary: RuntimeSummary | null;
+}
+
 interface RuntimeStateDto {
   attemptId: string;
   version: ScormVersion;
@@ -48,11 +80,14 @@ interface RuntimeStateDto {
   cmi: Record<string, unknown>;
   entry?: ScormEntry;
   learner?: { id: string; name?: string | null };
+  lastCommitSeq?: number | null;
 }
 
 interface CommitResponseDto {
   ok: boolean;
   terminated?: boolean;
+  suspended?: boolean;
+  duplicate?: boolean;
   errors?: CommitIssue[];
   warnings?: CommitIssue[];
   summary?: RuntimeSummary;
@@ -104,6 +139,7 @@ export class RestTransport implements ScormTransport {
     };
     if (dto.status !== undefined) result.status = dto.status;
     if (dto.entry !== undefined) result.entry = dto.entry;
+    if (dto.lastCommitSeq !== undefined) result.lastCommitSeq = dto.lastCommitSeq;
     if (dto.learner) {
       const learner: ScormLearner = { id: dto.learner.id };
       if (dto.learner.name != null) learner.name = dto.learner.name;
@@ -117,7 +153,7 @@ export class RestTransport implements ScormTransport {
     values: Record<string, unknown>,
     options?: CommitOptions,
   ): Promise<CommitResult> {
-    return this.postCommit(attemptId, values, false, options?.signal);
+    return this.postCommit(attemptId, values, false, options);
   }
 
   async terminate(
@@ -125,22 +161,47 @@ export class RestTransport implements ScormTransport {
     values?: Record<string, unknown>,
     options?: TerminateOptions,
   ): Promise<void> {
-    await this.postCommit(attemptId, values ?? {}, true, options?.signal);
+    await this.postCommit(attemptId, values ?? {}, true, options);
+  }
+
+  /**
+   * Reconcile an offline commit queue (`POST /attempts/{id}/sync`). The engine
+   * replays the commits in `seq` order and reports each as `applied`,
+   * `duplicate` (already applied — drop it) or `conflict` (the attempt was
+   * already finished — it can never apply).
+   */
+  async sync(
+    attemptId: string,
+    commits: SyncCommit[],
+    options?: { signal?: AbortSignal },
+  ): Promise<SyncResult> {
+    return this.http.post<SyncResult>(
+      `attempts/${encodeURIComponent(attemptId)}/sync`,
+      { commits },
+      options?.signal ? { signal: options.signal } : {},
+    );
   }
 
   private async postCommit(
     attemptId: string,
     values: Record<string, unknown>,
     terminate: boolean,
-    signal?: AbortSignal,
+    options?: CommitOptions | TerminateOptions,
   ): Promise<CommitResult> {
+    const body: Record<string, unknown> = { values, terminate };
+    if (options && 'seq' in options && options.seq !== undefined) body.seq = options.seq;
+    if (options && 'recordedAt' in options && options.recordedAt !== undefined) {
+      body.recordedAt = options.recordedAt;
+    }
     const dto = await this.http.post<CommitResponseDto>(
       `attempts/${encodeURIComponent(attemptId)}/commit`,
-      { values, terminate },
-      signal ? { signal } : {},
+      body,
+      options?.signal ? { signal: options.signal } : {},
     );
     const result: CommitResult = { ok: dto.ok };
     if (dto.terminated !== undefined) result.terminated = dto.terminated;
+    if (dto.suspended !== undefined) result.suspended = dto.suspended;
+    if (dto.duplicate) result.duplicate = true;
     if (dto.errors && dto.errors.length > 0) result.errors = dto.errors;
     if (dto.warnings && dto.warnings.length > 0) result.warnings = dto.warnings;
     if (dto.summary) result.summary = dto.summary;

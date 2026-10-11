@@ -11,6 +11,9 @@ export type {
   ScormPlayerStatus,
 } from './use-scorm-player.js';
 
+export { useOfflineSync } from './use-offline-sync.js';
+export type { UseOfflineSyncResult } from './use-offline-sync.js';
+
 export { ScormPlayer } from './scorm-player.js';
 export type { ScormPlayerProps } from './scorm-player.js';
 
@@ -20,3 +23,21 @@ export type { AsyncResource } from './use-resource.js';
 export { useCourse, useCourseAnalytics } from './use-course.js';
 export { useScormUpload } from './use-scorm-upload.js';
 export type { UseScormUploadResult, UploadStatus } from './use-scorm-upload.js';
+
+export {
+  useXapiActivity,
+  useXapiDocument,
+  useXapiPerson,
+  useXapiStatements,
+} from './use-xapi.js';
+export type { UseXapiDocumentResult } from './use-xapi.js';
+
+export {
+  useCmi5Course,
+  useCmi5Launch,
+  useCmi5LearnerPreferences,
+  useCmi5Registration,
+} from './use-cmi5.js';
+export type { Cmi5LaunchStatus, UseCmi5LaunchResult } from './use-cmi5.js';
+
+export { useWebhookDeliveries, useWebhookEndpoints } from './use-webhooks.js';

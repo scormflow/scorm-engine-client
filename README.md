@@ -165,6 +165,27 @@ A `ScormTransport` is the bridge between the in-browser runtime and wherever you
 | `RestTransport` | Default. Talks to a `@scormflow/server` backend. | Yes |
 | `LocalStorageTransport` | Browser-only persistence. Demos, offline learning, embedded courses, previews. | No |
 | `MemoryTransport` | Tests and ephemeral previews. State vanishes on refresh. | No |
+| `OfflineTransport` | Wraps `RestTransport` for flaky or no connectivity: queues commits durably, syncs on reconnect. | Yes (eventually) |
+
+### Offline sync
+
+```ts
+const transport = new OfflineTransport({
+  remote: new RestTransport({ baseUrl, token: () => attemptToken, retries: 1 }),
+  onConflict: (attemptId, commits) => console.warn('attempt finished elsewhere', commits),
+});
+```
+
+Every commit gets a strictly increasing `seq` and is written to `localStorage`
+(or any `StorageLike`) before it is sent with `POST /attempts/{id}/sync`. If the
+engine is unreachable the SCO keeps running — `commit` resolves with
+`queued: true` — and the queue is flushed on the next commit, on the browser's
+`online` event, or by calling `transport.flush(attemptId)`. The engine skips any
+`seq` it has already applied, so a flush whose response was lost is just resent.
+Once an attempt has been opened online, `initialize` also works offline from the
+cached snapshot. Commits that arrive after the attempt was finished on another
+device are reported to `onConflict` and dropped (server state wins).
+`useOfflineSync(transport, attemptId)` gives React a `{ pending, syncing, flush }` view.
 
 The runtime surface (`initialize`, `commit`, `terminate`) works with **any** transport. Course management, attempt lifecycle, and analytics are REST-transport-only — they only make sense when you're using the server.
 
@@ -213,6 +234,20 @@ const course   = await client.courses.upload(file, { onProgress: (p) => ... });
 const attempt  = await client.attempts.start(course.id, { learnerId });
 const overview = await client.analytics.overview();
 const stats    = await client.analytics.course(course.id);
+
+// cmi5 — the engine is the LMS; the AU talks to its LRS directly
+const reg      = await client.cmi5.register({ courseId: cmi5Course.id, learnerId });
+const { url }  = await client.cmi5.launch(reg.id, { auId: cmi5Course.aus[0].id });
+// …and inside the AU: new Cmi5AuSession().initialize(), passed(), completed(), terminate()
+
+// xAPI attachments — hash the body, declare it, send both as multipart/mixed
+const cert     = await client.xapi.prepareAttachment({ usageType, display, contentType: 'application/pdf', content: pdfBlob });
+await client.xapi.storeStatements({ ...statement, attachments: [cert.attachment] }, { attachments: [cert.body] });
+const { attachments } = await client.xapi.queryStatementsWithAttachments({ verb });
+
+// Webhooks — register an endpoint, then verify deliveries in your receiver
+const hook     = await client.webhooks.create({ url: hookUrl, events: ['course.completed'] });
+// receiver: await constructWebhookEvent(rawBody, req.headers.get('scormflow-signature'), hook.secret)
 
 // Any transport (this is what the player drives)
 await client.runtime.initialize(attempt.attemptId);
@@ -266,7 +301,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Typed error hierarchy (`ScormError`, `ScormHttpError`, `ScormNetworkError`, ...)
 - [x] Unit tests (Vitest) for transports + HTTP client
 - [x] `ResourceClient` — courses + analytics REST surface, upload with progress
-- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics`)
+- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks`)
 - [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
 - [ ] Automatic token refresh on `RestTransport` (a `TokenProvider` function is supported; refresh-on-401 is not)
 - [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
@@ -276,14 +311,20 @@ Checkboxes reflect the actual state of `main`.
 - [ ] `@scormflow/react` — `ScormProvider` context
 - [x] `@scormflow/react` — `<ScormPlayer/>` component
 - [x] `@scormflow/react` — `useScormPlayer`, `useCourse`, `useCourseAnalytics`, `useScormUpload` hooks
+- [x] `@scormflow/react` — `useXapiStatements`, `useXapiDocument`, `useXapiActivity`, `useXapiPerson` hooks
 - [ ] Player UI (header, footer, progress bar, loading + error states, CSS-variable theming)
 - [x] Examples: `nextjs-app`, `vite-react`, `vanilla-html`
 - [ ] First npm release for all four packages
 
 ### Phase 2 — Strong differentiators
-- [ ] Offline mode — IndexedDB statement queue + reconciliation
-- [ ] xAPI client surface (statements, state, activity profile)
-- [ ] cmi5 client surface (launch URL parsing, AU lifecycle)
+- [x] Offline SCORM commits — `OfflineTransport` (durable seq-numbered queue, `/sync` reconciliation, offline resume) + `useOfflineSync`
+- [ ] Offline xAPI — IndexedDB-backed statement queue + reconciliation
+- [x] xAPI client surface (statements, state, activity + agent profiles, activity/person lookups)
+- [x] xAPI attachments (`prepareAttachment`, multipart statement upload, `…WithAttachments` reads)
+- [x] cmi5 LMS surface (`client.cmi5`: courses, registrations, launch, waive) + React hooks
+- [x] cmi5 AU runtime (`Cmi5AuSession`: launch-parameter parsing, fetch URL, LaunchData, AU lifecycle)
+- [x] cmi5 block satisfaction + `cmi5LearnerPreferences` (LMS + AU side, React hook)
+- [x] Webhooks client (`client.webhooks`), receiver-side signature verification, delivery-log React hooks
 - [ ] Vue adapter — `@scormflow/vue`
 - [ ] Svelte adapter — `@scormflow/svelte`
 - [ ] CLI tool — `npx scormflow validate course.zip`, `extract`, `create`, `preview`
@@ -332,5 +373,5 @@ MIT — see [LICENSE](LICENSE).
 
 ## Related repos
 
-- [`scorm-engine`](https://github.com/scormflow/scorm-engine) — the backend. Headless runtime engine, REST API, built-in LRS (planned), analytics.
+- [`scorm-engine`](https://github.com/scormflow/scorm-engine) — the backend. Headless runtime engine, REST API, built-in LRS, cmi5, webhooks, analytics.
 - [`scorm-engine-demo`](https://github.com/scormflow/scorm-engine-demo) — reference LMS built on both repos (planned).
