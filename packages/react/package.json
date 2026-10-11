@@ -1,6 +1,6 @@
 {
   "name": "@scormflow/react",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "React hooks and <ScormPlayer/> component for ScormFlow. Drop-in SCORM, xAPI, and cmi5 support for any React app.",
   "license": "MIT",
   "type": "module",
@@ -42,7 +42,12 @@
     "node": ">=20"
   },
   "sideEffects": false,
-  "files": ["dist", "src", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap --external react",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch --external react",

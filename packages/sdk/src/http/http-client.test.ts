@@ -65,6 +65,72 @@ describe('HttpClient', () => {
     expect(headers['Authorization']).toBe('Bearer jwt-1');
   });
 
+  it('refreshes the token on 401 and retries once', async () => {
+    const fetchMock = vi.fn<FetchLike>(async (_url, init) => {
+      const auth = (init.headers as Record<string, string>)['Authorization'];
+      return auth === 'Bearer fresh' ? jsonResponse({ ok: true }) : errorResponse(401);
+    });
+    const onUnauthorized = vi.fn(async () => 'fresh');
+    const c = new HttpClient({
+      baseUrl: 'https://x/v1',
+      fetch: fetchMock,
+      token: 'stale',
+      retries: 0,
+      onUnauthorized,
+    });
+    const res = await c.get<{ ok: boolean }>('courses');
+    expect(res).toEqual({ ok: true });
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0]![1].headers as Record<string, string>)['Authorization']).toBe(
+      'Bearer stale',
+    );
+    expect((fetchMock.mock.calls[1]![1].headers as Record<string, string>)['Authorization']).toBe(
+      'Bearer fresh',
+    );
+  });
+
+  it('reuses the refreshed token on subsequent requests', async () => {
+    let calls = 0;
+    const fetchMock = vi.fn<FetchLike>(async (_url, init) => {
+      calls += 1;
+      const auth = (init.headers as Record<string, string>)['Authorization'];
+      // First request is stale → 401; everything after should carry the fresh token.
+      if (calls === 1) return errorResponse(401);
+      return auth === 'Bearer fresh' ? jsonResponse({ ok: true }) : errorResponse(401);
+    });
+    const onUnauthorized = vi.fn(async () => 'fresh');
+    const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, token: 'stale', onUnauthorized });
+    await c.get('courses');
+    await c.get('courses/2');
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect((fetchMock.mock.lastCall![1].headers as Record<string, string>)['Authorization']).toBe(
+      'Bearer fresh',
+    );
+  });
+
+  it('surfaces the 401 when refresh declines', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () => errorResponse(401));
+    const onUnauthorized = vi.fn(async () => null);
+    const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, onUnauthorized, retries: 0 });
+    await expect(c.get('courses')).rejects.toBeInstanceOf(ScormHttpError);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+  });
+
+  it('de-dupes concurrent refreshes into a single callback', async () => {
+    let calls = 0;
+    const fetchMock = vi.fn<FetchLike>(async (_url, init) => {
+      calls += 1;
+      const auth = (init.headers as Record<string, string>)['Authorization'];
+      return auth === 'Bearer fresh' ? jsonResponse({ ok: true }) : errorResponse(401);
+    });
+    const onUnauthorized = vi.fn(async () => 'fresh');
+    const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, token: 'stale', onUnauthorized });
+    await Promise.all([c.get('a'), c.get('b'), c.get('c')]);
+    expect(onUnauthorized).toHaveBeenCalledTimes(1);
+    expect(calls).toBe(6); // three initial 401s + three refreshed retries
+  });
+
   it('serializes JSON body and sets content-type', async () => {
     const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({}));
     const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });

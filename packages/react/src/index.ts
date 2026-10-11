@@ -4,6 +4,17 @@
  * `useScormPlayer` manages a SCORM attempt's lifecycle inside a React-managed
  * container; `<ScormPlayer/>` is a drop-in component built on it.
  */
+export {
+  ScormProvider,
+  useScormClient,
+  useResourceClient,
+  useScormTransport,
+  useXapiClient,
+  useCmi5Client,
+  useWebhooksClient,
+} from './scorm-context.js';
+export type { ScormProviderProps } from './scorm-context.js';
+
 export { useScormPlayer } from './use-scorm-player.js';
 export type {
   UseScormPlayerOptions,
