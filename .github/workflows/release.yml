@@ -31,14 +31,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Build first so each package's dist/*.d.ts exists before cross-package
+      # typechecking resolves `@scormflow/*` imports (matches ci.yml ordering).
+      - name: Build
+        run: pnpm build
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Tests
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
 
   check-versions:
     name: Tag matches all package versions
