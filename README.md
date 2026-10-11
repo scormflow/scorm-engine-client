@@ -35,6 +35,7 @@ If you're building an LMS, an internal training portal, a compliance app, a cour
 | [`@scormflow/player`](packages/player) | Iframe player + runtime bridge. Injects `window.API` (SCORM 1.2) and `window.API_1484_11` (SCORM 2004). Vanilla JS, no React required. | [`@scormflow/player`](https://www.npmjs.com/package/@scormflow/player) |
 | [`@scormflow/react`](packages/react) | React hooks + `<ScormPlayer/>` component + `<ScormProvider/>`. | [`@scormflow/react`](https://www.npmjs.com/package/@scormflow/react) |
 | [`@scormflow/types`](packages/types) | TypeScript types generated from the backend's OpenAPI spec. | [`@scormflow/types`](https://www.npmjs.com/package/@scormflow/types) |
+| [`@scormflow/client`](packages/client) | Umbrella package — SDK at the root, player / React / types on subpaths (`@scormflow/client/react`, …). One install. | [`@scormflow/client`](https://www.npmjs.com/package/@scormflow/client) |
 
 ---
 
