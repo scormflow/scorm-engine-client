@@ -14,7 +14,7 @@
     "dev": "pnpm -r --parallel --filter './packages/*' run dev",
     "typecheck": "pnpm -r --filter './packages/*' run typecheck",
     "test": "pnpm -r --filter './packages/*' run test",
-    "types:generate": "openapi-typescript ../scorm-engine/openapi/openapi.yaml -o packages/types/src/openapi.d.ts"
+    "types:generate": "openapi-typescript ../scorm-engine/openapi/openapi.yaml -o packages/types/src/openapi.ts"
   },
   "devDependencies": {
     "@types/node": "^20.16.5",

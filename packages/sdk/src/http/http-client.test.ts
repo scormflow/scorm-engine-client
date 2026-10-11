@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { HttpClient, type FetchLike } from './http-client.js';
-import { ScormHttpError, ScormNetworkError, ScormTimeoutError } from '../errors.js';
+import { ScormHttpError, ScormNetworkError, ScormRateLimitError, ScormTimeoutError } from '../errors.js';
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {
@@ -148,6 +148,49 @@ describe('HttpClient', () => {
     const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 2, retryBaseMs: 1 });
     await c.get('thing');
     expect(calls).toBe(2);
+  });
+
+  it('throws a ScormRateLimitError carrying the budget once 429 retries run out', async () => {
+    const fetchMock = vi.fn<FetchLike>(
+      async () =>
+        new Response('{"code":"rate_limited","message":"slow down"}', {
+          status: 429,
+          headers: {
+            'content-type': 'application/json',
+            'retry-after': '0',
+            'x-ratelimit-limit': '100',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '0',
+          },
+        }),
+    );
+    const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 1 });
+    const err = await c.get('thing').catch((e) => e);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(err).toBeInstanceOf(ScormRateLimitError);
+    expect(err).toBeInstanceOf(ScormHttpError);
+    expect(err).toMatchObject({
+      name: 'ScormRateLimitError',
+      status: 429,
+      code: 'rate_limited',
+      retryAfterMs: 0,
+      rateLimit: { limit: 100, remaining: 0, resetSeconds: 0 },
+    });
+  });
+
+  it('fails fast instead of sleeping through a Retry-After above maxRetryAfterMs', async () => {
+    const fetchMock = vi.fn<FetchLike>(
+      async () =>
+        new Response('{"code":"rate_limited"}', {
+          status: 429,
+          headers: { 'content-type': 'application/json', 'retry-after': '45' },
+        }),
+    );
+    const c = new HttpClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 3, maxRetryAfterMs: 10_000 });
+    const err = await c.get('thing').catch((e: unknown) => e);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(err).toBeInstanceOf(ScormRateLimitError);
+    expect(err).toMatchObject({ retryAfterMs: 45_000, rateLimit: null });
   });
 
   it('honors an external AbortSignal', async () => {

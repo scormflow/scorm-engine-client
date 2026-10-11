@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ScormFlow · Vanilla HTML example</title>
+
+    <!--
+      No bundler. The import map resolves the bare package specifiers to the
+      packages' built ESM output. Serve from the REPO ROOT so these relative
+      paths resolve, e.g.  `npx serve .`  then open
+      /examples/vanilla-html/index.html. Build the packages first (see README).
+    -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@scormflow/sdk": "/packages/sdk/dist/index.js",
+          "@scormflow/player": "/packages/player/dist/index.js"
+        }
+      }
+    </script>
+
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>ScormFlow</h1>
+        <p class="subtitle">Vanilla HTML example — no framework, no bundler</p>
+      </header>
+
+      <section id="config" class="panel">
+        <h2>1. Connect &amp; start an attempt</h2>
+        <div class="grid">
+          <label>Engine base URL<input id="baseUrl" value="http://localhost:3000/api/v1" /></label>
+          <label>API key<input id="apiKey" type="password" placeholder="sk_…" /></label>
+          <label>Course ID<input id="courseId" placeholder="course_…" /></label>
+          <label>SCO launch URL<input id="launchUrl" placeholder="https://…/index.html" /></label>
+          <label>Learner ID<input id="learnerId" value="demo-learner" /></label>
+          <label>Learner name<input id="learnerName" value="Demo Learner" /></label>
+        </div>
+        <button id="start" class="primary">Start attempt</button>
+        <p id="status" class="meta"></p>
+        <p id="error" class="error" hidden></p>
+      </section>
+
+      <section id="playerPanel" class="panel" hidden>
+        <div class="playerHeader">
+          <div>
+            <h2>2. Playing</h2>
+            <p id="attemptMeta" class="meta"></p>
+            <p id="lastCommit" class="meta">last commit: —</p>
+          </div>
+          <button id="stop">Stop</button>
+        </div>
+        <div id="scorm-root" class="player"></div>
+      </section>
+
+      <footer>
+        <p>Uses <code>@scormflow/sdk</code> + <code>@scormflow/player</code> directly via an import map.</p>
+      </footer>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
