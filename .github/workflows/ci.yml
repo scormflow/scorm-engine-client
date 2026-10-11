@@ -35,11 +35,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Build first so cross-package type declarations (dist/*.d.ts) exist before
+      # typecheck/test resolve workspace imports like `@scormflow/sdk`.
+      - name: Build
+        run: pnpm build
+
       - name: Typecheck
         run: pnpm typecheck
 
       - name: Test
         run: pnpm test
-
-      - name: Build
-        run: pnpm build
