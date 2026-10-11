@@ -35,6 +35,7 @@ If you're building an LMS, an internal training portal, a compliance app, a cour
 | [`@scormflow/player`](packages/player) | Iframe player + runtime bridge. Injects `window.API` (SCORM 1.2) and `window.API_1484_11` (SCORM 2004). Vanilla JS, no React required. | [`@scormflow/player`](https://www.npmjs.com/package/@scormflow/player) |
 | [`@scormflow/react`](packages/react) | React hooks + `<ScormPlayer/>` component + `<ScormProvider/>`. | [`@scormflow/react`](https://www.npmjs.com/package/@scormflow/react) |
 | [`@scormflow/types`](packages/types) | TypeScript types generated from the backend's OpenAPI spec. | [`@scormflow/types`](https://www.npmjs.com/package/@scormflow/types) |
+| [`@scormflow/client`](packages/client) | Umbrella package — SDK at the root, player / React / types on subpaths (`@scormflow/client/react`, …). One install. | [`@scormflow/client`](https://www.npmjs.com/package/@scormflow/client) |
 
 ---
 
@@ -303,18 +304,18 @@ Checkboxes reflect the actual state of `main`.
 - [x] `ResourceClient` — courses + analytics REST surface, upload with progress
 - [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks`)
 - [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
-- [ ] Automatic token refresh on `RestTransport` (a `TokenProvider` function is supported; refresh-on-401 is not)
+- [x] Automatic token refresh on `RestTransport` (`onUnauthorized` callback refreshes the token on a 401 and retries once; `TokenProvider` still supported)
 - [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
 - [x] Player: commit debouncing + `beforeunload` auto-save
 - [x] Player: SCORM 1.2 CMI surface
 - [x] Player: SCORM 2004 CMI surface
-- [ ] `@scormflow/react` — `ScormProvider` context
+- [x] `@scormflow/react` — `ScormProvider` context (`useScormClient` + typed namespace hooks)
 - [x] `@scormflow/react` — `<ScormPlayer/>` component
 - [x] `@scormflow/react` — `useScormPlayer`, `useCourse`, `useCourseAnalytics`, `useScormUpload` hooks
 - [x] `@scormflow/react` — `useXapiStatements`, `useXapiDocument`, `useXapiActivity`, `useXapiPerson` hooks
-- [ ] Player UI (header, footer, progress bar, loading + error states, CSS-variable theming)
+- [x] Player UI (header, footer, progress bar, loading + error states, CSS-variable theming)
 - [x] Examples: `nextjs-app`, `vite-react`, `vanilla-html`
-- [ ] First npm release for all four packages
+- [x] First npm release for all four packages (`@scormflow/types`, `@scormflow/sdk`, `@scormflow/player`, `@scormflow/react`)
 
 ### Phase 2 — Strong differentiators
 - [x] Offline SCORM commits — `OfflineTransport` (durable seq-numbered queue, `/sync` reconciliation, offline resume) + `useOfflineSync`

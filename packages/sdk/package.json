@@ -1,6 +1,6 @@
 {
   "name": "@scormflow/sdk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Framework-agnostic TypeScript client for the ScormFlow runtime engine. Pluggable ScormTransport (REST, LocalStorage, Memory, bring your own).",
   "license": "MIT",
   "type": "module",
@@ -41,7 +41,12 @@
   "engines": {
     "node": ">=20"
   },
-  "files": ["dist", "src", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",

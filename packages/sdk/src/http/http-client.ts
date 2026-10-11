@@ -17,6 +17,14 @@ export interface HttpClientOptions {
   apiKey?: string;
   /** Short-lived attempt JWT sent as `Authorization: Bearer ...`. */
   token?: TokenProvider;
+  /**
+   * Called once when a request comes back `401 Unauthorized`, to obtain a fresh
+   * token. The failing request is retried a single time with the returned token,
+   * which also becomes the token used by every subsequent request. Return `null`
+   * (or throw) to give up and surface the `401`. Concurrent 401s share a single
+   * in-flight refresh.
+   */
+  onUnauthorized?: () => string | null | Promise<string | null>;
   /** Custom fetch (defaults to globalThis.fetch). Useful for tests + Node < 18. */
   fetch?: FetchLike;
   /** Extra headers applied to every request. */
@@ -67,6 +75,11 @@ export class HttpClient {
   /** Tenant API key, when configured. Read by clients that build their own requests. */
   readonly apiKey: string | undefined;
   private readonly token: TokenProvider | undefined;
+  private readonly onUnauthorized: HttpClientOptions['onUnauthorized'];
+  /** Token obtained from the most recent successful refresh; preferred over `token` once set. */
+  private refreshedToken: string | undefined;
+  /** De-dupes concurrent refreshes so a burst of 401s triggers a single callback. */
+  private refreshing: Promise<string | null> | null = null;
   private readonly fetchImpl: FetchLike;
   private readonly headers: Record<string, string>;
   private readonly retries: number;
@@ -81,6 +94,7 @@ export class HttpClient {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, '');
     this.apiKey = opts.apiKey;
     this.token = opts.token;
+    this.onUnauthorized = opts.onUnauthorized;
     const f = opts.fetch ?? (globalThis.fetch as FetchLike | undefined);
     if (!f) {
       throw new Error(
@@ -109,7 +123,7 @@ export class HttpClient {
    */
   async raw(req: HttpRequest): Promise<Response> {
     const url = this.buildUrl(req.path, req.query);
-    const headers = await this.buildHeaders(req);
+    let headers = await this.buildHeaders(req);
     const init: RequestInit = {
       method: req.method ?? (req.json !== undefined || req.body !== undefined ? 'POST' : 'GET'),
       headers,
@@ -122,6 +136,7 @@ export class HttpClient {
 
     let attempt = 0;
     let lastError: unknown;
+    let triedRefresh = false;
 
     while (attempt <= retries) {
       attempt += 1;
@@ -138,6 +153,18 @@ export class HttpClient {
         if (res.ok) return res;
 
         const errBody = await safeJson(res);
+        // A 401 triggers a one-shot token refresh; the retried request is free
+        // (it does not spend the transient-failure retry budget).
+        if (res.status === 401 && this.onUnauthorized && !triedRefresh) {
+          triedRefresh = true;
+          const fresh = await this.refreshAuth();
+          if (fresh) {
+            headers = await this.buildHeaders(req);
+            init.headers = headers;
+            attempt -= 1;
+            continue;
+          }
+        }
         const retryAfterMs = parseRetryAfter(res.headers.get('retry-after'));
         // A server-requested wait longer than we are willing to block for is
         // surfaced immediately so the caller can decide (queue, back off, show UI).
@@ -218,11 +245,37 @@ export class HttpClient {
       headers['content-type'] = 'application/json';
     }
     if (this.apiKey) headers['X-API-Key'] = this.apiKey;
-    if (this.token) {
+    // A token obtained from a 401 refresh supersedes the configured provider.
+    if (this.refreshedToken) {
+      headers['Authorization'] = `Bearer ${this.refreshedToken}`;
+    } else if (this.token) {
       const tok = typeof this.token === 'function' ? await this.token() : this.token;
       if (tok) headers['Authorization'] = `Bearer ${tok}`;
     }
     return headers;
+  }
+
+  /**
+   * Run the `onUnauthorized` callback to obtain a fresh token, caching it for
+   * subsequent requests. Concurrent callers share one in-flight refresh so a
+   * burst of 401s only invokes the callback once. Returns the new token, or
+   * `null` if no callback is configured or it declined/failed.
+   */
+  private refreshAuth(): Promise<string | null> {
+    if (!this.onUnauthorized) return Promise.resolve(null);
+    if (!this.refreshing) {
+      this.refreshing = Promise.resolve()
+        .then(() => this.onUnauthorized!())
+        .then((tok) => {
+          this.refreshedToken = tok ?? undefined;
+          return tok ?? null;
+        })
+        .catch(() => null)
+        .finally(() => {
+          this.refreshing = null;
+        });
+    }
+    return this.refreshing;
   }
 
   private combineSignals(

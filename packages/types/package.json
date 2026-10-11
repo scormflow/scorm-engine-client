@@ -1,6 +1,6 @@
 {
   "name": "@scormflow/types",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "TypeScript types generated from the ScormFlow OpenAPI spec.",
   "license": "MIT",
   "type": "module",
@@ -37,7 +37,12 @@
   "engines": {
     "node": ">=20"
   },
-  "files": ["dist", "src", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",

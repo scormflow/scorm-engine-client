@@ -1,6 +1,6 @@
 {
   "name": "@scormflow/player",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Iframe-based SCORM player and runtime bridge for the browser. Clean-room implementation of the SCORM 1.2 and 2004 JavaScript APIs.",
   "license": "MIT",
   "type": "module",
@@ -40,7 +40,12 @@
   "engines": {
     "node": ">=20"
   },
-  "files": ["dist", "src", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean --sourcemap",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
