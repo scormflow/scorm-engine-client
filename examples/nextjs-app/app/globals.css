@@ -1,0 +1,52 @@
+:root {
+  color-scheme: light dark;
+  --bg: #0b0d12;
+  --panel: #151922;
+  --border: #262c3a;
+  --text: #e6e9ef;
+  --muted: #9aa4b2;
+  --accent: #5b8cff;
+  --error: #ff6b6b;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+
+.app { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+header h1 { margin: 0; font-size: 1.6rem; letter-spacing: -0.02em; }
+.subtitle { margin: 0.15rem 0 1.5rem; color: var(--muted); }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+.panel h2 { margin-top: 0; font-size: 1.05rem; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+@media (max-width: 620px) { .grid { grid-template-columns: 1fr; } }
+
+.labeled { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; }
+.labeled span { color: var(--muted); }
+
+input {
+  background: #0e1119; border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); padding: 0.55rem 0.7rem; font-size: 0.9rem;
+}
+input:focus { outline: 2px solid var(--accent); }
+
+button {
+  background: #232a38; color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.55rem 1rem; font-size: 0.9rem; cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #08122b; font-weight: 600; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.playerHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: 1rem; }
+.meta { margin: 0.2rem 0; color: var(--muted); font-size: 0.82rem; }
+code { background: #0e1119; padding: 0.1rem 0.35rem; border-radius: 5px; font-size: 0.82em; }
+
+.player { width: 100%; height: 70vh; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.player [data-scormflow-container], .player iframe { width: 100%; height: 100%; }
+.player iframe { border: 0; display: block; }
+
+.loading { color: var(--muted); padding: 2rem; }
+.error { color: var(--error); font-size: 0.88rem; }

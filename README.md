@@ -69,30 +69,30 @@ Requirements: Node ≥ 20 for tooling. The runtime works in any evergreen browse
 ### 1. React + our backend
 
 ```tsx
-import {
-  ScormProvider,
-  ScormPlayer,
-  ScormClient,
-  RestTransport,
-} from '@scormflow/react';
+import { ScormPlayer } from '@scormflow/react';
+import { ScormClient } from '@scormflow/sdk';
 
 const client = new ScormClient({
-  transport: new RestTransport({
-    baseUrl: 'https://your-engine.example.com',
-    apiKey: process.env.NEXT_PUBLIC_SCORMFLOW_KEY!,
-  }),
+  baseUrl: 'https://your-engine.example.com/v1',
+  apiKey: process.env.NEXT_PUBLIC_SCORMFLOW_KEY!,
 });
 
-export default function CoursePage({ attemptId }: { attemptId: string }) {
+export default function CoursePage({
+  attemptId,
+  launchUrl,
+}: {
+  attemptId: string;
+  launchUrl: string;
+}) {
   return (
-    <ScormProvider client={client}>
-      <ScormPlayer
-        attemptId={attemptId}
-        className="w-full h-screen"
-        onComplete={(r) => console.log('done', r)}
-        onProgress={(p) => console.log('progress', p)}
-      />
-    </ScormProvider>
+    <ScormPlayer
+      attemptId={attemptId}
+      launchUrl={launchUrl}
+      transport={client.runtime}
+      className="w-full h-screen"
+      onCommit={(r) => console.log('committed', r.summary)}
+      onError={(err) => console.error(err)}
+    />
   );
 }
 ```
@@ -102,38 +102,35 @@ export default function CoursePage({ attemptId }: { attemptId: string }) {
 For demos, previews, offline learning, or "open the .zip and just play it" embeds.
 
 ```tsx
-import {
-  ScormProvider,
-  ScormPlayer,
-  ScormClient,
-  LocalStorageTransport,
-} from '@scormflow/react';
+import { ScormPlayer } from '@scormflow/react';
+import { LocalStorageTransport } from '@scormflow/sdk';
 
-const client = new ScormClient({
-  transport: new LocalStorageTransport({ namespace: 'demo' }),
-});
+const transport = new LocalStorageTransport({ namespace: 'demo' });
 
-<ScormProvider client={client}>
-  <ScormPlayer attemptId="local-1" packageUrl="/courses/intro.zip" />
-</ScormProvider>
+<ScormPlayer
+  attemptId="local-1"
+  launchUrl="/courses/intro/index.html"
+  transport={transport}
+/>;
 ```
 
 ### 3. Vanilla JS — drop-in player
 
 ```ts
 import { mountScormPlayer } from '@scormflow/player';
-import { ScormClient, RestTransport } from '@scormflow/sdk';
+import { ScormClient } from '@scormflow/sdk';
 
-const client = new ScormClient({
-  transport: new RestTransport({ baseUrl, apiKey }),
-});
+const client = new ScormClient({ baseUrl, apiKey });
 
-const player = mountScormPlayer({
+const player = await mountScormPlayer({
   container: '#scorm-root',
   attemptId: 'attempt_abc',
-  client,
-  onComplete: (result) => console.log(result),
+  launchUrl: '/courses/intro/index.html',
+  transport: client.runtime,
+  onCommit: (result) => console.log(result),
 });
+
+// later: await player.commit() / await player.destroy()
 ```
 
 ### 4. Bring your own backend
@@ -149,7 +146,12 @@ class MyFirebaseTransport implements ScormTransport {
   async terminate(attemptId: string, values?: Record<string, unknown>) { /* ... */ }
 }
 
-const client = new ScormClient({ transport: new MyFirebaseTransport(db) });
+// Hand it straight to the player…
+const transport = new MyFirebaseTransport(db);
+<ScormPlayer attemptId={attemptId} launchUrl={launchUrl} transport={transport} />;
+
+// …or plug it into the facade's runtime namespace, keeping REST for the rest.
+const client = new ScormClient({ baseUrl, transport });
 ```
 
 ---
@@ -163,6 +165,27 @@ A `ScormTransport` is the bridge between the in-browser runtime and wherever you
 | `RestTransport` | Default. Talks to a `@scormflow/server` backend. | Yes |
 | `LocalStorageTransport` | Browser-only persistence. Demos, offline learning, embedded courses, previews. | No |
 | `MemoryTransport` | Tests and ephemeral previews. State vanishes on refresh. | No |
+| `OfflineTransport` | Wraps `RestTransport` for flaky or no connectivity: queues commits durably, syncs on reconnect. | Yes (eventually) |
+
+### Offline sync
+
+```ts
+const transport = new OfflineTransport({
+  remote: new RestTransport({ baseUrl, token: () => attemptToken, retries: 1 }),
+  onConflict: (attemptId, commits) => console.warn('attempt finished elsewhere', commits),
+});
+```
+
+Every commit gets a strictly increasing `seq` and is written to `localStorage`
+(or any `StorageLike`) before it is sent with `POST /attempts/{id}/sync`. If the
+engine is unreachable the SCO keeps running — `commit` resolves with
+`queued: true` — and the queue is flushed on the next commit, on the browser's
+`online` event, or by calling `transport.flush(attemptId)`. The engine skips any
+`seq` it has already applied, so a flush whose response was lost is just resent.
+Once an attempt has been opened online, `initialize` also works offline from the
+cached snapshot. Commits that arrive after the attempt was finished on another
+device are reported to `onConflict` and dropped (server state wins).
+`useOfflineSync(transport, attemptId)` gives React a `{ pending, syncing, flush }` view.
 
 The runtime surface (`initialize`, `commit`, `terminate`) works with **any** transport. Course management, attempt lifecycle, and analytics are REST-transport-only — they only make sense when you're using the server.
 
@@ -171,48 +194,72 @@ The runtime surface (`initialize`, `commit`, `terminate`) works with **any** tra
 ## React API
 
 ```tsx
-// Provider
-<ScormProvider client={scormClient}>
-  <App />
-</ScormProvider>
-
 // Drop-in player
 <ScormPlayer
   attemptId={attemptId}
-  packageUrl="/courses/intro.zip"  // optional — only for client-only mode
-  onComplete={(result) => ...}
-  onProgress={(progress) => ...}
+  launchUrl={launchUrl}
+  transport={transport}          // any ScormTransport, e.g. client.runtime
+  autoCommitMs={10_000}          // debounced background commit; 0 disables
+  onCommit={(result) => ...}
   onError={(err) => ...}
+  loadingFallback={<Spinner />}
+  errorFallback={(err) => <ErrorBox error={err} />}
   className="w-full h-screen"
 />
 
 // Hooks
-const { progress, status, score, suspend, resume } = useScorm(attemptId);
-const { course, isLoading } = useCourse(courseId);
-const { stats } = useCourseAnalytics(courseId);
-const { upload, isUploading, progress } = useScormUpload();
+const { containerRef, status, error, player, commit, terminate } =
+  useScormPlayer({ attemptId, launchUrl, transport });
+// The data hooks take a ResourceClient — `client.resources` off the facade.
+const { data: course, loading, error, refetch } = useCourse(client.resources, courseId);
+const { data: stats } = useCourseAnalytics(client.resources, courseId);
+const { upload, status, progress, result, reset } = useScormUpload(client.resources);
 ```
+
+> `ScormProvider` (client context) is not shipped yet — pass the transport or
+> client explicitly for now. See the [roadmap](#roadmap).
 
 ---
 
 ## SDK API (excerpt)
 
 ```ts
-import { ScormClient, RestTransport } from '@scormflow/sdk';
+import { ScormClient } from '@scormflow/sdk';
 
-const client = new ScormClient({
-  transport: new RestTransport({ baseUrl, apiKey }),
-});
+const client = new ScormClient({ baseUrl, apiKey });
 
-// REST-transport-only
-const course   = await client.courses.upload(file);
-const attempt  = await client.attempts.start({ courseId, learnerId });
-const stats    = await client.analytics.forCourse(courseId);
+// REST-only — these need the server
+const courses  = await client.courses.list();
+const course   = await client.courses.upload(file, { onProgress: (p) => ... });
+const attempt  = await client.attempts.start(course.id, { learnerId });
+const overview = await client.analytics.overview();
+const stats    = await client.analytics.course(course.id);
 
-// Any transport (used by the player)
-await client.runtime.initialize(attempt.id);
-await client.runtime.commit(attempt.id, { 'cmi.score.raw': '85' });
-await client.runtime.terminate(attempt.id);
+// cmi5 — the engine is the LMS; the AU talks to its LRS directly
+const reg      = await client.cmi5.register({ courseId: cmi5Course.id, learnerId });
+const { url }  = await client.cmi5.launch(reg.id, { auId: cmi5Course.aus[0].id });
+// …and inside the AU: new Cmi5AuSession().initialize(), passed(), completed(), terminate()
+
+// xAPI attachments — hash the body, declare it, send both as multipart/mixed
+const cert     = await client.xapi.prepareAttachment({ usageType, display, contentType: 'application/pdf', content: pdfBlob });
+await client.xapi.storeStatements({ ...statement, attachments: [cert.attachment] }, { attachments: [cert.body] });
+const { attachments } = await client.xapi.queryStatementsWithAttachments({ verb });
+
+// Webhooks — register an endpoint, then verify deliveries in your receiver
+const hook     = await client.webhooks.create({ url: hookUrl, events: ['course.completed'] });
+// receiver: await constructWebhookEvent(rawBody, req.headers.get('scormflow-signature'), hook.secret)
+
+// Any transport (this is what the player drives)
+await client.runtime.initialize(attempt.attemptId);
+await client.runtime.commit(attempt.attemptId, { 'cmi.score.raw': '85' });
+await client.runtime.terminate(attempt.attemptId);
+```
+
+Pass `transport` to run the runtime loop off-server (`LocalStorageTransport`,
+`MemoryTransport`, or your own) while courses and analytics still use REST:
+
+```ts
+const client = new ScormClient({ baseUrl, transport: new LocalStorageTransport() });
 ```
 
 Errors are typed: `ScormHttpError`, `ScormNetworkError`, `ScormTimeoutError`, `ScormAbortError`. Retries with exponential backoff are built in for idempotent operations.
@@ -240,7 +287,7 @@ Errors are typed: `ScormHttpError`, `ScormNetworkError`, `ScormTimeoutError`, `S
 
 ## Roadmap
 
-Checkboxes reflect the actual state of `main`. Source of truth for scope: [`../scope.md`](../scope.md).
+Checkboxes reflect the actual state of `main`.
 
 ### Phase 1 — MVP
 - [x] Monorepo (pnpm workspaces) + TypeScript strict
@@ -253,24 +300,31 @@ Checkboxes reflect the actual state of `main`. Source of truth for scope: [`../s
 - [x] HTTP client with retry + exponential backoff
 - [x] Typed error hierarchy (`ScormError`, `ScormHttpError`, `ScormNetworkError`, ...)
 - [x] Unit tests (Vitest) for transports + HTTP client
-- [ ] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics`)
-- [ ] Automatic token refresh on `RestTransport`
-- [ ] Request / response interceptors
-- [ ] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
-- [ ] Player: commit debouncing + `beforeunload` auto-save with `keepalive`
-- [ ] Player: SCORM 1.2 CMI surface
-- [ ] Player: SCORM 2004 CMI surface
+- [x] `ResourceClient` — courses + analytics REST surface, upload with progress
+- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks`)
+- [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
+- [ ] Automatic token refresh on `RestTransport` (a `TokenProvider` function is supported; refresh-on-401 is not)
+- [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
+- [x] Player: commit debouncing + `beforeunload` auto-save
+- [x] Player: SCORM 1.2 CMI surface
+- [x] Player: SCORM 2004 CMI surface
 - [ ] `@scormflow/react` — `ScormProvider` context
-- [ ] `@scormflow/react` — `<ScormPlayer/>` component
-- [ ] `@scormflow/react` — `useScorm`, `useCourse`, `useCourseAnalytics`, `useScormUpload` hooks
+- [x] `@scormflow/react` — `<ScormPlayer/>` component
+- [x] `@scormflow/react` — `useScormPlayer`, `useCourse`, `useCourseAnalytics`, `useScormUpload` hooks
+- [x] `@scormflow/react` — `useXapiStatements`, `useXapiDocument`, `useXapiActivity`, `useXapiPerson` hooks
 - [ ] Player UI (header, footer, progress bar, loading + error states, CSS-variable theming)
-- [ ] Examples: `nextjs-app`, `vite-react`, `vanilla-html`
+- [x] Examples: `nextjs-app`, `vite-react`, `vanilla-html`
 - [ ] First npm release for all four packages
 
 ### Phase 2 — Strong differentiators
-- [ ] Offline mode — IndexedDB statement queue + reconciliation
-- [ ] xAPI client surface (statements, state, activity profile)
-- [ ] cmi5 client surface (launch URL parsing, AU lifecycle)
+- [x] Offline SCORM commits — `OfflineTransport` (durable seq-numbered queue, `/sync` reconciliation, offline resume) + `useOfflineSync`
+- [ ] Offline xAPI — IndexedDB-backed statement queue + reconciliation
+- [x] xAPI client surface (statements, state, activity + agent profiles, activity/person lookups)
+- [x] xAPI attachments (`prepareAttachment`, multipart statement upload, `…WithAttachments` reads)
+- [x] cmi5 LMS surface (`client.cmi5`: courses, registrations, launch, waive) + React hooks
+- [x] cmi5 AU runtime (`Cmi5AuSession`: launch-parameter parsing, fetch URL, LaunchData, AU lifecycle)
+- [x] cmi5 block satisfaction + `cmi5LearnerPreferences` (LMS + AU side, React hook)
+- [x] Webhooks client (`client.webhooks`), receiver-side signature verification, delivery-log React hooks
 - [ ] Vue adapter — `@scormflow/vue`
 - [ ] Svelte adapter — `@scormflow/svelte`
 - [ ] CLI tool — `npx scormflow validate course.zip`, `extract`, `create`, `preview`
@@ -319,5 +373,5 @@ MIT — see [LICENSE](LICENSE).
 
 ## Related repos
 
-- [`scorm-engine`](https://github.com/scormflow/scorm-engine) — the backend. Headless runtime engine, REST API, built-in LRS (planned), analytics.
+- [`scorm-engine`](https://github.com/scormflow/scorm-engine) — the backend. Headless runtime engine, REST API, built-in LRS, cmi5, webhooks, analytics.
 - [`scorm-engine-demo`](https://github.com/scormflow/scorm-engine-demo) — reference LMS built on both repos (planned).

@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { computeBackoff, parseRetryAfter, sleep } from './retry.js';
+import { computeBackoff, parseRateLimit, parseRetryAfter, sleep } from './retry.js';
+
+describe('parseRateLimit', () => {
+  it('reads the X-RateLimit-* headers', () => {
+    const headers = new Headers({
+      'x-ratelimit-limit': '600',
+      'x-ratelimit-remaining': '12',
+      'x-ratelimit-reset': '41',
+    });
+    expect(parseRateLimit(headers)).toEqual({ limit: 600, remaining: 12, resetSeconds: 41 });
+  });
+
+  it('returns null when limiting is off or a header is missing / malformed', () => {
+    expect(parseRateLimit(new Headers())).toBeNull();
+    expect(parseRateLimit(new Headers({ 'x-ratelimit-limit': '600', 'x-ratelimit-remaining': '1' }))).toBeNull();
+    expect(
+      parseRateLimit(
+        new Headers({ 'x-ratelimit-limit': 'lots', 'x-ratelimit-remaining': '1', 'x-ratelimit-reset': '2' }),
+      ),
+    ).toBeNull();
+  });
+});
 
 describe('computeBackoff', () => {
   it('grows exponentially up to maxMs', () => {
