@@ -3,6 +3,7 @@
 > **TypeScript SDK, iframe player, and React components for SCORM, xAPI, and cmi5.**
 > Pluggable transport — works with the [`@scormflow/server`](https://github.com/scormflow/scorm-engine) backend, your own backend, or fully client-side via LocalStorage. End-to-end typed.
 
+[![CI](https://github.com/scormflow/scorm-engine-client/actions/workflows/ci.yml/badge.svg)](https://github.com/scormflow/scorm-engine-client/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/@scormflow/sdk.svg?label=%40scormflow%2Fsdk)](https://www.npmjs.com/package/@scormflow/sdk)
 [![npm](https://img.shields.io/npm/v/@scormflow/react.svg?label=%40scormflow%2Freact)](https://www.npmjs.com/package/@scormflow/react)
