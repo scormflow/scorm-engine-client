@@ -51,7 +51,7 @@ jobs:
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           echo "git tag: $TAG_VERSION"
           FAILED=0
-          for pkg in packages/types packages/sdk packages/player packages/react; do
+          for pkg in packages/types packages/sdk packages/player packages/react packages/client; do
             PKG_VERSION="$(node -p "require('./$pkg/package.json').version")"
             echo "$pkg: $PKG_VERSION"
             if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
