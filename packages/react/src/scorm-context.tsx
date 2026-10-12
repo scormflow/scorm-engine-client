@@ -1,5 +1,6 @@
 import { createContext, createElement, useContext, type ReactNode } from 'react';
 import type {
+  CertificatesClient,
   Cmi5Client,
   ResourceClient,
   ScormClient,
@@ -70,4 +71,14 @@ export function useCmi5Client(): Cmi5Client {
 /** The provided client's webhooks surface. */
 export function useWebhooksClient(): WebhooksClient {
   return useScormClient().webhooks;
+}
+
+/** The provided client's certificates surface. */
+export function useCertificatesClient(): CertificatesClient {
+  return useScormClient().certificates;
+}
+
+/** The provided client, or null outside a provider — for components that also accept a client prop. */
+export function useOptionalScormClient(): ScormClient | null {
+  return useContext(ScormContext);
 }

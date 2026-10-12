@@ -2813,6 +2813,375 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List certificates, newest first */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description The learner's id in your system. */
+                    learnerId?: string;
+                    courseId?: string;
+                    status?: "valid" | "revoked";
+                    limit?: number;
+                    /** @description The previous page's `nextCursor`. */
+                    before?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Certificates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["Certificate"][];
+                            pagination: components["schemas"]["Pagination"];
+                        };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificates/verify/{serial}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The code printed on the certificate. Case, spaces and dashes are ignored. */
+                serial: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Check a certificate by its printed code
+         * @description Public — no credentials. Reveals only what is printed on the certificate.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The code printed on the certificate. Case, spaces and dashes are ignored. */
+                    serial: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The certificate exists; `valid` is false once it is revoked */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CertificateVerification"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificates/{certificateId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificateId: string;
+            };
+            cookie?: never;
+        };
+        /** Get one certificate */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    certificateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Certificate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Certificate"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificates/{certificateId}/pdf": {
+        parameters: {
+            query?: {
+                /** @description `1` to download (`Content-Disposition: attachment`) instead of viewing inline. */
+                download?: components["parameters"]["CertificateDownload"];
+            };
+            header?: never;
+            path: {
+                certificateId: string;
+            };
+            cookie?: never;
+        };
+        /** Download the certificate PDF */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description `1` to download (`Content-Disposition: attachment`) instead of viewing inline. */
+                    download?: components["parameters"]["CertificateDownload"];
+                };
+                header?: never;
+                path: {
+                    certificateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["CertificatePdf"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/certificates/{certificateId}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                certificateId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a certificate
+         * @description Verification then reports it invalid and the PDF is stamped REVOKED.
+         *     Revoking an already-revoked certificate keeps the original revocation.
+         *     Emits `certificate.revoked`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    certificateId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        reason?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description The revoked certificate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Certificate"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attempts/{attemptId}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The attempt's certificate
+         * @description Readable with the attempt's player token, so a learner-facing page can show it.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    attemptId: components["parameters"]["AttemptId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Certificate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Certificate"];
+                    };
+                };
+                /** @description The attempt has no certificate (yet) — `certificate_not_found` */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Issue the attempt's certificate now
+         * @description For attempts that completed before certificates were enabled, or whose
+         *     automatic issue failed. Idempotent: an attempt that already has a
+         *     certificate returns it with `200`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    attemptId: components["parameters"]["AttemptId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The attempt already had this certificate */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Certificate"];
+                    };
+                };
+                /** @description Issued */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Certificate"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+                /** @description The attempt is not completed, or failed — `attempt_not_eligible` */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attempts/{attemptId}/certificate/pdf": {
+        parameters: {
+            query?: {
+                /** @description `1` to download (`Content-Disposition: attachment`) instead of viewing inline. */
+                download?: components["parameters"]["CertificateDownload"];
+                /** @description The attempt token, for plain `<a href>` links that can't send a header. */
+                token?: string;
+            };
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        /** Download the attempt's certificate PDF */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description `1` to download (`Content-Disposition: attachment`) instead of viewing inline. */
+                    download?: components["parameters"]["CertificateDownload"];
+                    /** @description The attempt token, for plain `<a href>` links that can't send a header. */
+                    token?: string;
+                };
+                header?: never;
+                path: {
+                    attemptId: components["parameters"]["AttemptId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                200: components["responses"]["CertificatePdf"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3306,8 +3675,53 @@ export interface components {
             /** @description Relative URL of the next page, or an empty string when the result set is exhausted. */
             more: string;
         };
+        Certificate: {
+            id: string;
+            /**
+             * @description Public verification code printed on the PDF.
+             * @example 7KQ2-M9XD-4TPA
+             */
+            serial: string;
+            /** @enum {string} */
+            status: "valid" | "revoked";
+            attemptId: string;
+            courseId: string;
+            /** @description The learner's id in your system. */
+            learnerId: string | null;
+            /** @description As printed — the learner's name at issue time, or their id if they had none. */
+            learnerName: string;
+            /** @description The course title at issue time. */
+            courseTitle: string;
+            /** @description Scaled score × 100, else raw within min/max (0–100 by default). */
+            scorePercent: number | null;
+            /** Format: date-time */
+            completedAt: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            revokedAt: string | null;
+            revokedReason: string | null;
+            /** @description Path of the PDF (API key auth), relative to the server origin. */
+            pdfUrl: string;
+        };
+        CertificateVerification: {
+            valid: boolean;
+            serial: string;
+            /** @enum {string} */
+            status: "valid" | "revoked";
+            learnerName: string;
+            courseTitle: string;
+            /** @description The issuing organization (`CERTIFICATE_ISSUER`). */
+            issuer: string;
+            /** Format: date-time */
+            completedAt: string;
+            /** Format: date-time */
+            issuedAt: string;
+            /** Format: date-time */
+            revokedAt: string | null;
+        };
         /** @enum {string} */
-        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "webhook.test";
+        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "webhook.test";
         WebhookEndpoint: {
             id: string;
             /** Format: uri */
@@ -3598,6 +4012,17 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description A one-page landscape A4 PDF. Revoked certificates are stamped REVOKED. */
+        CertificatePdf: {
+            headers: {
+                /** @description `inline` (or `attachment` with `download=1`); filename `certificate-<serial>.pdf`. */
+                "Content-Disposition"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/pdf": string;
+            };
+        };
         /** @description Missing or invalid credentials. */
         Unauthorized: {
             headers: {
@@ -3652,6 +4077,8 @@ export interface components {
         CourseId: string;
         AttemptId: string;
         Limit: number;
+        /** @description `1` to download (`Content-Disposition: attachment`) instead of viewing inline. */
+        CertificateDownload: "1" | "true";
         /** @description Opaque pagination cursor returned by the previous page. */
         Cursor: string;
         /** @description Must be `1.0` or `1.0.x`. Required on every LRS resource except About. */

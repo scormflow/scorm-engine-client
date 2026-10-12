@@ -25,6 +25,8 @@ export type WebhookEventType =
   | 'course.failed'
   | 'score.updated'
   | 'objective.mastered'
+  | 'certificate.issued'
+  | 'certificate.revoked'
   | 'cmi5.session.terminated'
   | 'cmi5.session.abandoned'
   | 'cmi5.au.waived'

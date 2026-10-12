@@ -12,6 +12,8 @@ export {
   useXapiClient,
   useCmi5Client,
   useWebhooksClient,
+  useCertificatesClient,
+  useOptionalScormClient,
 } from './scorm-context.js';
 export type { ScormProviderProps } from './scorm-context.js';
 
@@ -52,3 +54,7 @@ export {
 export type { Cmi5LaunchStatus, UseCmi5LaunchResult } from './use-cmi5.js';
 
 export { useWebhookDeliveries, useWebhookEndpoints } from './use-webhooks.js';
+
+export { useCertificate, useCertificates } from './use-certificates.js';
+export { ScormCertificate, ScormCertificateView, formatCertificateDate } from './scorm-certificate.js';
+export type { ScormCertificateProps, ScormCertificateViewProps } from './scorm-certificate.js';

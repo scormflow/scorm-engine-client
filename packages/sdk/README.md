@@ -26,7 +26,7 @@ await client.runtime.terminate(attemptId);
 ## Facade
 
 `ScormClient` builds one `HttpClient` — base URL, auth, headers, retry policy,
-timeouts, `onRequest` / `onResponse` interceptors — and shares it across six
+timeouts, `onRequest` / `onResponse` interceptors — and shares it across its
 namespaces:
 
 | Namespace | Methods |
@@ -38,6 +38,7 @@ namespaces:
 | `client.xapi` | the built-in LRS — see [xAPI](#xapi) |
 | `client.cmi5` | cmi5 courses, registrations, launch, waive, learner preferences — see [cmi5](#cmi5) |
 | `client.webhooks` | webhook endpoints, test events, delivery log — see [Webhooks](#webhooks) |
+| `client.certificates` | completion certificates, PDFs, revocation, public verification — see [Certificates](#certificates) |
 
 `client.http` (the shared `HttpClient`), `client.rest` (the `RestTransport`) and
 `client.resources` (the `ResourceClient`) stay reachable for endpoints the
@@ -215,6 +216,29 @@ argument once you've narrowed on `event.type`:
 ```ts
 const event = await constructWebhookEvent<XapiStatementStoredEventData>(raw, header, secret);
 if (event.type === 'xapi.statement.stored') await index(event.data.statement);
+```
+
+`certificate.issued` / `certificate.revoked` carry `CertificateEventData`.
+
+## Certificates
+
+The engine issues one PDF certificate per attempt, the first time the attempt
+is completed and not failed. `client.certificates` (or a standalone
+`CertificatesClient`) reads and manages them:
+
+```ts
+// Learner-facing — these also work with the attempt's player token
+const cert = await client.certificates.forAttempt(attemptId);      // null until issued
+const pdf  = await client.certificates.attemptPdf(attemptId);      // Blob
+const href = client.certificates.attemptPdfUrl(attemptId, { token, download: true });
+
+// Admin — API key
+const page = await client.certificates.list({ learnerId: 'learner-42', status: 'valid' });
+await client.certificates.revoke(page.data[0]!.id, 'Issued in error');
+const { certificate, created } = await client.certificates.issue(attemptId); // backfill; 409 if not eligible
+
+// Public — anyone holding the printed code
+const result = await client.certificates.verify('7KQ2-M9XD-4TPA');  // null if unknown; result.valid is false once revoked
 ```
 
 ## Health and readiness
