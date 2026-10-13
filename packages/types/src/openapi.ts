@@ -2496,6 +2496,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream engine events live (Server-Sent Events)
+         * @description Holds the connection open and writes one SSE message per event:
+         *     `id` is the event id, `event` its type and `data` the JSON
+         *     `WebhookPayload`. Comment lines (`: ping`) keep idle connections
+         *     alive every `EVENT_STREAM_HEARTBEAT_SECONDS`. A client that stops
+         *     reading is disconnected once about 1 MB is buffered for it.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /**
+                     * @description Comma-separated event types to receive; every type when omitted (or `*`).
+                     * @example course.completed,certificate.issued
+                     */
+                    types?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description An open `text/event-stream`. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        /**
+                         * @example id: evt_0b7e0d4e-8a7c-4c43-9a8e-2a0f0a6f4c11
+                         *     event: course.completed
+                         *     data: {"id":"evt_0b7e0d4e-8a7c-4c43-9a8e-2a0f0a6f4c11","type":"course.completed","createdAt":"2026-10-13T09:00:00.000Z","data":{"attemptId":"att_1"}}
+                         */
+                        "text/event-stream": string;
+                    };
+                };
+                /** @description The `types` query names an unknown event type (`code: invalid_events`). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/{webhookId}": {
         parameters: {
             query?: never;

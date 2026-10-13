@@ -157,6 +157,14 @@ export type {
   IssueCertificateResult,
 } from './certificates.js';
 
+export { EventsClient, parseSse } from './events.js';
+export type {
+  EngineEventStream,
+  EngineEventStreamOptions,
+  EngineEventStreamStatus,
+  SseMessage,
+} from './events.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,
