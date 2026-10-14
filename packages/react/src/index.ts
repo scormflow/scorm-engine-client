@@ -13,6 +13,7 @@ export {
   useCmi5Client,
   useWebhooksClient,
   useCertificatesClient,
+  usePluginsClient,
   useOptionalScormClient,
 } from './scorm-context.js';
 export type { ScormProviderProps } from './scorm-context.js';
@@ -59,5 +60,7 @@ export { appendEngineEvent, useEngineEvents } from './use-engine-events.js';
 export type { UseEngineEventsOptions, UseEngineEventsResult } from './use-engine-events.js';
 
 export { useCertificate, useCertificates } from './use-certificates.js';
+export { useLiveActivity, usePlugins, topEventTypes } from './use-plugins.js';
+export type { UseLiveActivityOptions } from './use-plugins.js';
 export { ScormCertificate, ScormCertificateView, formatCertificateDate } from './scorm-certificate.js';
 export type { ScormCertificateProps, ScormCertificateViewProps } from './scorm-certificate.js';

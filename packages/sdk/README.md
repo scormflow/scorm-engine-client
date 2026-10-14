@@ -40,6 +40,7 @@ namespaces:
 | `client.webhooks` | webhook endpoints, test events, delivery log — see [Webhooks](#webhooks) |
 | `client.certificates` | completion certificates, PDFs, revocation, public verification — see [Certificates](#certificates) |
 | `client.events` | the live event stream (Server-Sent Events) — see [Live events](#live-events) |
+| `client.plugins` | installed engine plugins, live activity, any plugin's routes — see [Plugins](#plugins) |
 
 `client.http` (the shared `HttpClient`), `client.rest` (the `RestTransport`) and
 `client.resources` (the `ResourceClient`) stay reachable for endpoints the
@@ -269,6 +270,30 @@ webhooks where every event must arrive, and dedupe on `event.id` if you use
 both. The stream needs a tenant API key: keep it on your server (or proxy it)
 rather than shipping the key to browsers. `parseSse(body)` is exported for
 reading any other SSE response.
+
+## Plugins
+
+The engine can be extended with plugins (`buildApp({ plugins: [...] })` or
+`PLUGINS=analytics`); each one's routes live under `/plugins/<name>`.
+
+```ts
+await client.plugins.list();            // [{ name: 'analytics', version: '1.0.0' }]
+await client.plugins.has('analytics');  // true
+
+// Built-in analytics plugin: per-minute event counts over a rolling window
+const report = await client.plugins.activity({ minutes: 15 });
+report.totals['course.completed'];      // completions in the last 15 minutes
+report.timeline;                        // [{ minute, total, counts }], oldest first
+
+// Any plugin's own routes, without writing a client for it
+await client.plugins.get('slack', 'status');
+await client.plugins.post('slack', 'test', { channel: '#training' });
+```
+
+`activity` rejects with a 404 `ScormHttpError` when the engine runs without the
+analytics plugin — `isPluginMissing(err)` tells that case apart. Counts are kept
+in the engine's memory and restart from zero when it restarts; the
+`client.analytics` reports remain the record. Every call needs the API key.
 
 ## Health and readiness
 

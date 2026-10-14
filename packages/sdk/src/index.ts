@@ -165,6 +165,9 @@ export type {
   SseMessage,
 } from './events.js';
 
+export { PluginsClient, isPluginMissing } from './plugins.js';
+export type { ActivityBucket, ActivityQuery, ActivityReport, EventCounts, InstalledPlugin } from './plugins.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,
