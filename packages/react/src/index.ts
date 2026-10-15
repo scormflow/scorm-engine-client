@@ -14,6 +14,7 @@ export {
   useWebhooksClient,
   useCertificatesClient,
   usePluginsClient,
+  useAiClient,
   useOptionalScormClient,
 } from './scorm-context.js';
 export type { ScormProviderProps } from './scorm-context.js';
@@ -64,3 +65,7 @@ export { useLiveActivity, usePlugins, topEventTypes } from './use-plugins.js';
 export type { UseLiveActivityOptions } from './use-plugins.js';
 export { ScormCertificate, ScormCertificateView, formatCertificateDate } from './scorm-certificate.js';
 export type { ScormCertificateProps, ScormCertificateViewProps } from './scorm-certificate.js';
+export { describeAiError, useAiCalls, useAiInsight, useAiProviders, useAiUsage } from './use-ai.js';
+export type { AiInsightState, UseAiUsageOptions } from './use-ai.js';
+export { AiInsightPanel, AiInsightView, describeAiInsight } from './ai-insight-panel.js';
+export type { AiInsightPanelProps, AiInsightViewProps } from './ai-insight-panel.js';

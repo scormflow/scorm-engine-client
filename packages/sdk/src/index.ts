@@ -168,6 +168,28 @@ export type {
 export { PluginsClient, isPluginMissing } from './plugins.js';
 export type { ActivityBucket, ActivityQuery, ActivityReport, EventCounts, InstalledPlugin } from './plugins.js';
 
+export { AiClient, AI_FEATURES, AI_PROVIDERS, isAiUnavailable } from './ai.js';
+export type {
+  AiBudgetAlertEventData,
+  AiCall,
+  AiCallList,
+  AiCallQuery,
+  AiCallStatus,
+  AiFeature,
+  AiInsight,
+  AiInsightKind,
+  AiInsightRequest,
+  AiProvider,
+  AiProviderConfig,
+  AiProviderConfigInput,
+  AiProviderTestRequest,
+  AiProviderTestResult,
+  AiUsage,
+  AiUsageReport,
+  PiiKind,
+  SetAiProviderResult,
+} from './ai.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,

@@ -225,6 +225,11 @@ const { events, status } = useEngineEvents(client.events, { types: ['course.comp
 
 // Live per-minute activity from the engine's analytics plugin (admin tooling)
 const { data: activity } = useLiveActivity(client.plugins, { minutes: 15 });
+
+// AI insights with the tenant's own provider (admin tooling) — generates only on click
+<AiInsightPanel courseId={courseId} kind="recommendations" renderText={(md) => <Markdown>{md}</Markdown>} />
+const { insight, loading, error, generate } = useAiInsight(client.ai);
+const { data: usage } = useAiUsage(client.ai);
 ```
 
 > Wrap the tree in `<ScormProvider client={client}>` and hooks / components can
@@ -272,6 +277,13 @@ stream.close();
 // Plugins — what the engine has installed, and the analytics plugin's live counts
 const installed = await client.plugins.list();
 const activity = await client.plugins.activity({ minutes: 15 });
+
+// AI analytics — bring your own provider + key (engine needs AI_MASTER_KEY)
+await client.ai.setProvider('default', { provider: 'anthropic', model: 'claude-sonnet-5-5', apiKey, monthlyTokenCap: 2_000_000 });
+const check    = await client.ai.testProvider({ provider: 'openai', model: 'gpt-5', apiKey });   // stores nothing
+const insight  = await client.ai.generate({ kind: 'insights', courseId: course.id });         // never retried
+const usage    = await client.ai.usage();                                                     // tokens, cost, cap status
+const csv      = await client.ai.callsCsv({ limit: 1000 });                                  // audit log export
 
 // Any transport (this is what the player drives)
 await client.runtime.initialize(attempt.attemptId);
@@ -325,7 +337,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Typed error hierarchy (`ScormError`, `ScormHttpError`, `ScormNetworkError`, ...)
 - [x] Unit tests (Vitest) for transports + HTTP client
 - [x] `ResourceClient` — courses + analytics REST surface, upload with progress
-- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events` / `plugins`)
+- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events` / `plugins` / `ai`)
 - [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
 - [x] Automatic token refresh on `RestTransport` (`onUnauthorized` callback refreshes the token on a 401 and retries once; `TokenProvider` still supported)
 - [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
@@ -359,7 +371,8 @@ Checkboxes reflect the actual state of `main`.
 
 ### Phase 3 — Category-defining
 - [ ] Session replay viewer (`<SessionReplay attemptId={id} />`)
-- [ ] AI insights widgets (BYO provider + key)
+- [x] AI insights (BYO provider + key) — `client.ai` (provider configs, key test, insights, usage, call log + CSV), `<AiInsightPanel/>`, `useAiInsight` / `useAiUsage` / `useAiProviders` / `useAiCalls`
+- [ ] AI provider settings UI (config form, usage meter)
 - [ ] A11y — keyboard nav, screen reader announcements, focus management
 - [ ] i18n — built-in locale support for player UI
 - [ ] Course version diff viewer

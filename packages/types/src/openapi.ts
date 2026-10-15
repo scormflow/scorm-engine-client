@@ -3343,6 +3343,375 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the tenant's AI provider configs */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Configs (keys are never returned) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["AiProviderConfig"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/providers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a provider, model and key without storing them
+         * @description Sends a tiny completion with the given key. Nothing is stored or logged.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiProviderTestRequest"];
+                };
+            };
+            responses: {
+                /** @description The outcome; `ok` is false (with `error`) when the provider refused or failed */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProviderTestResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/providers/{feature}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The feature the config serves; `default` serves any feature without its own. */
+                feature: components["schemas"]["AiFeature"];
+            };
+            cookie?: never;
+        };
+        /** Get one AI provider config */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The feature the config serves; `default` serves any feature without its own. */
+                    feature: components["schemas"]["AiFeature"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Config */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProviderConfig"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /**
+         * Create or replace an AI provider config
+         * @description Replaces the whole config. Omit `apiKey` to keep the stored key (only
+         *     while the provider stays the same); send `null` to remove it. The key
+         *     is encrypted at rest and never returned — responses carry `keyHint`.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The feature the config serves; `default` serves any feature without its own. */
+                    feature: components["schemas"]["AiFeature"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiProviderConfigInput"];
+                };
+            };
+            responses: {
+                /** @description Updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProviderConfig"];
+                    };
+                };
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiProviderConfig"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        post?: never;
+        /** Delete an AI provider config */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The feature the config serves; `default` serves any feature without its own. */
+                    feature: components["schemas"]["AiFeature"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate insights, a summary or recommendations
+         * @description Builds an aggregate view of the most recent attempts (one course, or
+         *     the whole tenant) — outcome rates, where unfinished attempts stopped,
+         *     most-failed objectives, most-missed questions — and asks the
+         *     configured model about it. Uses the `kind`'s own config, else `default`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AiInsightRequest"];
+                };
+            };
+            responses: {
+                /** @description The model's answer, with usage */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AiInsight"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                /** @description No config for this kind (`ai_not_configured`) or unknown course (`course_not_found`) */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The config is switched off (`ai_disabled`) */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The config's monthly token cap is used up (`ai_budget_exceeded`) */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The provider failed (`ai_provider_error`), refused the key (`ai_provider_auth`) or was unreachable (`ai_provider_unreachable`) */
+                502: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This month's token usage and cost per config */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Usage for the current calendar month (UTC) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * @description `YYYY-MM`
+                             * @example 2026-10
+                             */
+                            month: string;
+                            data: components["schemas"]["AiUsage"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The AI call audit log, newest first */
+        get: {
+            parameters: {
+                query?: {
+                    limit?: number;
+                    /** @description The previous page's `nextCursor`. */
+                    before?: string;
+                    /** @description `csv` to download the page as CSV (next cursor in `X-Next-Cursor`). */
+                    format?: "json" | "csv";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Calls */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["AiCall"][];
+                            pagination: components["schemas"]["Pagination"];
+                        };
+                        "text/csv": string;
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3882,7 +4251,7 @@ export interface components {
             revokedAt: string | null;
         };
         /** @enum {string} */
-        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "webhook.test";
+        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "ai.budget.alert" | "webhook.test";
         WebhookEndpoint: {
             id: string;
             /** Format: uri */
@@ -4168,6 +4537,150 @@ export interface components {
              */
             "error-code": "1" | "2" | "3";
             "error-text": string;
+        };
+        /** @enum {string} */
+        AiProvider: "openai" | "anthropic" | "gemini" | "mistral" | "ollama" | "openai_compatible";
+        /** @enum {string} */
+        AiFeature: "default" | "insights" | "summary" | "recommendations";
+        /** @enum {string} */
+        AiInsightKind: "insights" | "summary" | "recommendations";
+        AiProviderConfig: {
+            feature: components["schemas"]["AiFeature"];
+            provider: components["schemas"]["AiProvider"];
+            /** @example claude-sonnet-5-5 */
+            model: string;
+            /** @description Overrides the provider's API base. */
+            baseUrl: string | null;
+            hasKey: boolean;
+            /** @description The key's last four characters, e.g. `…9f3a`. */
+            keyHint: string | null;
+            /** @description Run the PII redaction pass before sending prompts. */
+            redactPii: boolean;
+            /** @description Kill-switch; when false */
+            enabled: boolean;
+            /** @description Input + output tokens allowed per calendar month (UTC); null for no cap. */
+            monthlyTokenCap: number | null;
+            /** @description Fraction of the cap at which `ai.budget.alert` fires. */
+            alertThreshold: number;
+            /** @description USD per million input tokens */
+            inputCostPerMTok: number | null;
+            /** @description USD per million output tokens. */
+            outputCostPerMTok: number | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AiProviderConfigInput: {
+            provider: components["schemas"]["AiProvider"];
+            model: string;
+            /** @description Required for openai, anthropic, gemini and mistral. Omit to keep the stored key; null removes it. */
+            apiKey?: string | null;
+            /** @description Required for `openai_compatible`. Private addresses need `AI_ALLOW_PRIVATE_URLS`. */
+            baseUrl?: string | null;
+            /** @default true */
+            redactPii: boolean;
+            /** @default true */
+            enabled: boolean;
+            monthlyTokenCap?: number | null;
+            /** @default 0.8 */
+            alertThreshold: number;
+            inputCostPerMTok?: number | null;
+            outputCostPerMTok?: number | null;
+        };
+        AiProviderTestRequest: {
+            provider: components["schemas"]["AiProvider"];
+            model: string;
+            apiKey?: string | null;
+            baseUrl?: string | null;
+        };
+        AiProviderTestResult: {
+            ok: boolean;
+            provider: components["schemas"]["AiProvider"];
+            model: string;
+            latencyMs: number;
+            error?: {
+                /** @enum {string} */
+                code: "ai_provider_auth" | "ai_provider_error" | "ai_provider_unreachable";
+                message: string;
+            };
+        };
+        AiInsightRequest: {
+            kind?: components["schemas"]["AiInsightKind"];
+            /** @description Limit the analysis to one course; omit for the whole tenant. */
+            courseId?: string;
+            /** @description An extra question for the model, answered alongside the task. */
+            question?: string;
+        };
+        AiInsight: {
+            /** @description The call log entry for this answer. */
+            id: string;
+            kind: components["schemas"]["AiInsightKind"];
+            /** @enum {string} */
+            scope: "course" | "tenant";
+            courseId: string | null;
+            feature: components["schemas"]["AiFeature"];
+            provider: components["schemas"]["AiProvider"];
+            model: string;
+            /** @description The model's answer */
+            text: string;
+            usage: {
+                inputTokens: number;
+                outputTokens: number;
+                totalTokens: number;
+                costUsd: number | null;
+            };
+            redactions: {
+                count: number;
+                /** @description Replacements by kind (email, card, ssn, ip, phone). */
+                counts: {
+                    [key: string]: number;
+                };
+            };
+            sample: {
+                attempts: number;
+                /** @description More attempts exist than the 500 analysed. */
+                truncated: boolean;
+                /** Format: date-time */
+                from: string | null;
+                /** Format: date-time */
+                to: string | null;
+            };
+            /** Format: date-time */
+            generatedAt: string;
+        };
+        AiUsage: {
+            feature: components["schemas"]["AiFeature"];
+            provider: components["schemas"]["AiProvider"];
+            model: string;
+            /** @description Successful calls this month. */
+            calls: number;
+            tokensUsed: number;
+            costUsd: number | null;
+            monthlyTokenCap: number | null;
+            alertThreshold: number;
+            alerting: boolean;
+            exhausted: boolean;
+        };
+        AiCall: {
+            id: string;
+            feature: string;
+            kind: string;
+            provider: string;
+            model: string;
+            courseId: string | null;
+            /** @enum {string} */
+            status: "succeeded" | "failed" | "blocked";
+            /** @description SHA-256 of the system and user prompt as sent. */
+            promptHash: string;
+            inputTokens: number;
+            outputTokens: number;
+            costUsd: number | null;
+            redactions: number;
+            latencyMs: number;
+            error: string | null;
+            /** Format: date-time */
+            createdAt: string;
         };
     };
     responses: {
