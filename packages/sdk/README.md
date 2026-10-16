@@ -295,6 +295,40 @@ analytics plugin — `isPluginMissing(err)` tells that case apart. Counts are ke
 in the engine's memory and restart from zero when it restarts; the
 `client.analytics` reports remain the record. Every call needs the API key.
 
+## Session replay
+
+The engine rebuilds an attempt's timeline from its commit log — location,
+status, score, interaction, objective and suspend / resume changes — so reading
+a replay needs nothing from the player:
+
+```ts
+const replay = await client.replay.attempt(attemptId);
+replay.entries;      // [{ offsetSeconds, type: 'interaction.recorded', source: 'content', location, data }, …]
+replay.visits;       // [{ location, enteredAt, leftAt, activeSeconds }]
+replay.engagement;   // { score: 0–100, level, components: { progress, focus, interactivity }, … }
+
+const heatmap = await client.replay.courseHeatmap(courseId, { limit: 100, since: '2026-10-01' });
+heatmap.locations;   // per location: attempts reached, avg active time, interactions, dropOffs, pointer cells
+```
+
+For what happens between commits, a `ReplayRecorder` buffers capture events
+and posts them with the attempt token (in the player, pass it as `replay` to
+`mountScormPlayer`, which also records tab visibility, idle time and media):
+
+```ts
+const recorder = new ReplayRecorder({ replay: client.replay, attemptId, flushIntervalMs: 5000 });
+recorder.navigate('slide-3');                     // only when the location changes
+recorder.record('video.watched', { data: { percent: 90 } });
+await recorder.flush({ keepalive: true });        // on pagehide
+await recorder.stop();
+```
+
+Every event gets an id, so a retried batch is stored once. Network and 5xx
+failures keep events (up to `maxBuffered`) for the next flush; a batch the
+engine rejects as malformed is dropped; if the engine has capture turned off
+(`isReplayCaptureDisabled(err)`) the recorder calls `onDisabled` and stops
+recording. Reading replays and heatmaps needs the API key.
+
 ## Health and readiness
 
 Neither call needs credentials. `getReadiness()` resolves on both `200` and

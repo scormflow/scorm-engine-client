@@ -61,6 +61,8 @@ export interface HttpRequest {
   retries?: number;
   /** Override the client default. */
   timeoutMs?: number;
+  /** Let the request outlive the page (`fetch` keepalive), e.g. a flush on `pagehide`. */
+  keepalive?: boolean;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -128,6 +130,7 @@ export class HttpClient {
       method: req.method ?? (req.json !== undefined || req.body !== undefined ? 'POST' : 'GET'),
       headers,
     };
+    if (req.keepalive) init.keepalive = true;
     if (req.json !== undefined) init.body = JSON.stringify(req.json);
     else if (req.body !== undefined) init.body = req.body;
 

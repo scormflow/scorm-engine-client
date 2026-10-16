@@ -4,6 +4,7 @@ import type {
   CertificatesClient,
   PluginsClient,
   Cmi5Client,
+  ReplayClient,
   ResourceClient,
   ScormClient,
   ScormTransport,
@@ -87,6 +88,11 @@ export function usePluginsClient(): PluginsClient {
 /** The provided client's AI analytics surface. */
 export function useAiClient(): AiClient {
   return useScormClient().ai;
+}
+
+/** The provided client's session replay surface. */
+export function useReplayClient(): ReplayClient {
+  return useScormClient().replay;
 }
 
 /** The provided client, or null outside a provider — for components that also accept a client prop. */

@@ -190,6 +190,25 @@ export type {
   SetAiProviderResult,
 } from './ai.js';
 
+export { ReplayClient, ReplayRecorder, REPLAY_EVENT_TYPES, isReplayCaptureDisabled } from './replay.js';
+export type {
+  AttemptReplay,
+  CourseHeatmap,
+  EngagementLevel,
+  EngagementScore,
+  HeatmapCell,
+  HeatmapLocation,
+  HeatmapQuery,
+  RecordOptions,
+  ReplayEvent,
+  ReplayEventsResult,
+  ReplayEventType,
+  ReplayLocationVisit,
+  ReplayRecorderOptions,
+  ReplaySource,
+  ReplayTimelineEntry,
+} from './replay.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,

@@ -2,6 +2,7 @@ import type { ScormTransport } from '@scormflow/sdk';
 
 import { createScorm12Api, type Scorm12Api } from './api-scorm12.js';
 import { createScorm2004Api, type Scorm2004Api } from './api-scorm2004.js';
+import { attachReplayCapture, type ReplayCaptureOptions } from './replay-capture.js';
 import { RuntimeCore, type RuntimeCoreOptions } from './runtime.js';
 
 /** Window augmented with the SCORM API globals a SCO looks up. */
@@ -40,6 +41,11 @@ export interface MountScormPlayerOptions
   targetWindow?: Window & ScormWindow;
   /** Extra attributes for the created iframe (e.g. `sandbox`, `title`). */
   iframeAttributes?: Record<string, string>;
+  /**
+   * Opt in to session-replay capture (tab visibility, idle, media, optionally
+   * pointer). The recorder is flushed and stopped on `destroy()`.
+   */
+  replay?: Omit<ReplayCaptureOptions, 'window' | 'iframe'>;
 }
 
 export interface ScormPlayerHandle {
@@ -79,6 +85,7 @@ export async function mountScormPlayer(
   }
   iframe.src = opts.launchUrl;
   container.appendChild(iframe);
+  const detachCapture = opts.replay ? attachReplayCapture({ ...opts.replay, window: win, iframe }) : null;
 
   // Best-effort flush if the host page is closing before the SCO terminates.
   const onUnload = (): void => {
@@ -94,7 +101,9 @@ export async function mountScormPlayer(
     },
     async destroy(): Promise<void> {
       win.removeEventListener?.('beforeunload', onUnload);
+      detachCapture?.();
       await core.terminate();
+      await opts.replay?.recorder.stop();
       detach();
       iframe.remove();
     },

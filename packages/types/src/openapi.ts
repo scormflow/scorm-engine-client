@@ -3343,6 +3343,168 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/attempts/{attemptId}/replay/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send capture events for session replay
+         * @description Batches of opt-in client events, authenticated like a commit. Events
+         *     with an `id` already stored for the attempt are skipped, so a retried
+         *     batch is safe. The whole batch is rejected if any event is malformed.
+         *     At most `REPLAY_MAX_EVENTS_PER_ATTEMPT` are stored per attempt; the rest
+         *     are reported as `dropped`.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    attemptId: components["parameters"]["AttemptId"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReplayEventBatch"];
+                };
+            };
+            responses: {
+                /** @description Stored */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReplayEventsResult"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                /**
+                 * @description The token is for another attempt, or capture is turned off on this
+                 *     engine — `replay_capture_disabled`
+                 */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/attempts/{attemptId}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attemptId: components["parameters"]["AttemptId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The attempt's replay timeline and engagement score
+         * @description Rebuilt from up to 1000 commits and 10 000 capture events; `truncated`
+         *     says when the attempt had more.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    attemptId: components["parameters"]["AttemptId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Timeline */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AttemptReplay"];
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{courseId}/heatmap": {
+        parameters: {
+            query?: {
+                /** @description Most recent attempts to include (default 50, at most 200). */
+                limit?: number;
+                /** @description Only attempts started at or after this time. */
+                since?: string;
+            };
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        /** Per-location heatmap across a course's recent attempts */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Most recent attempts to include (default 50, at most 200). */
+                    limit?: number;
+                    /** @description Only attempts started at or after this time. */
+                    since?: string;
+                };
+                header?: never;
+                path: {
+                    courseId: components["parameters"]["CourseId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Heatmap */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CourseHeatmap"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai/providers": {
         parameters: {
             query?: never;
@@ -4249,6 +4411,146 @@ export interface components {
             issuedAt: string;
             /** Format: date-time */
             revokedAt: string | null;
+        };
+        ReplayEvent: {
+            /** @description Client-generated id; an event whose id is already stored is skipped. */
+            id?: string;
+            /**
+             * @description `page.hidden`, `page.visible`, `idle.start`, `idle.end`,
+             *     `navigation`, `pointer`, `media.play`, `media.pause`, `media.ended`,
+             *     or a content-defined name such as `quiz.skipped`.
+             * @example page.hidden
+             */
+            type: string;
+            /**
+             * Format: date-time
+             * @description When it happened; within 5 minutes of the attempt's lifetime.
+             */
+            at: string;
+            /** @description Slide / page the learner was on. A `navigation` event moves the learner here. */
+            location?: string | null;
+            /**
+             * @description At most 2048 bytes as JSON. `pointer` events need `x` and `y`
+             *     between 0 and 1 (relative to the content frame).
+             */
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        ReplayEventBatch: {
+            events: components["schemas"]["ReplayEvent"][];
+        };
+        ReplayEventsResult: {
+            accepted: number;
+            /** @description Events skipped because their id was already stored (or repeated in the batch). */
+            duplicates: number;
+            /** @description Events over the per-attempt cap, not stored. */
+            dropped: number;
+        };
+        ReplayTimelineEntry: {
+            /** Format: date-time */
+            at: string;
+            /** @description Seconds since the attempt started. */
+            offsetSeconds: number;
+            /**
+             * @description Engine: `attempt.started`, `attempt.finished`. Content (from
+             *     commits): `location.changed`, `status.changed`, `score.changed`,
+             *     `progress.changed`, `interaction.recorded`, `objective.updated`,
+             *     `session.suspended`, `session.resumed`. Client: the capture event's type.
+             */
+            type: string;
+            /** @enum {string} */
+            source: "engine" | "content" | "client";
+            /** @description Where the learner was. A `location.changed` entry carries the location being left. */
+            location: string | null;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        ReplayLocationVisit: {
+            location: string;
+            /** Format: date-time */
+            enteredAt: string;
+            /** Format: date-time */
+            leftAt: string;
+            /** @description Not counting suspended, hidden, idle or 30-minute-silent stretches. */
+            activeSeconds: number;
+        };
+        EngagementScore: {
+            score: number;
+            /** @enum {string} */
+            level: "high" | "medium" | "low";
+            /**
+             * @description Each 0–1, weighted progress 0.4, focus 0.3, interactivity 0.3. A null
+             *     component (focus without capture; interactivity with no interaction
+             *     or pointer event) is left out and the rest reweighted.
+             */
+            components: {
+                progress: number;
+                focus: number | null;
+                interactivity: number | null;
+            };
+            activeSeconds: number;
+            hiddenSeconds: number;
+            idleSeconds: number;
+            focusLosses: number;
+            interactions: number;
+            locationsVisited: number;
+        };
+        AttemptReplay: {
+            attemptId: string;
+            courseId: string;
+            learner: {
+                /** @description The learner's id in your system. */
+                id: string;
+                name: string | null;
+            };
+            status: string;
+            completionStatus: string;
+            successStatus: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            endedAt: string;
+            durationSeconds: number;
+            commits: number;
+            /** @description Whether the player sent any capture events. */
+            captured: boolean;
+            truncated: boolean;
+            entries: components["schemas"]["ReplayTimelineEntry"][];
+            visits: components["schemas"]["ReplayLocationVisit"][];
+            engagement: components["schemas"]["EngagementScore"];
+        };
+        HeatmapLocation: {
+            location: string;
+            /** @description Visits across all attempts; going back counts again. */
+            visits: number;
+            /** @description Attempts that reached the location. */
+            attempts: number;
+            totalActiveSeconds: number;
+            /** @description Per visit. */
+            avgActiveSeconds: number;
+            interactions: number;
+            /** @description Unfinished attempts whose last location was this one. */
+            dropOffs: number;
+            /** @description Non-empty cells of the `grid` × `grid` pointer grid. */
+            pointer: {
+                x: number;
+                y: number;
+                count: number;
+            }[];
+        };
+        CourseHeatmap: {
+            courseId: string;
+            attempts: number;
+            /** @description Attempts that completed, passed or failed. */
+            completed: number;
+            /** @example 10 */
+            grid: number;
+            /** @description More attempts matched than `limit`; the most recent were used. */
+            truncated: boolean;
+            /** @description In course order (the average position attempts first reached each one). */
+            locations: components["schemas"]["HeatmapLocation"][];
         };
         /** @enum {string} */
         WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "ai.budget.alert" | "webhook.test";
