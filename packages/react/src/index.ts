@@ -39,6 +39,16 @@ export type { AsyncResource } from './use-resource.js';
 export { useCourse, useCourseAnalytics } from './use-course.js';
 export { useScormUpload } from './use-scorm-upload.js';
 export type { UseScormUploadResult, UploadStatus } from './use-scorm-upload.js';
+export { usePackageValidation } from './use-package-validation.js';
+export type { UsePackageValidationResult, ValidationStatus } from './use-package-validation.js';
+export {
+  describeValidation,
+  groupValidationIssues,
+  PackageValidationView,
+  PackageValidator,
+  VALIDATION_CATEGORY_LABELS,
+} from './package-validation.js';
+export type { PackageValidationViewProps, PackageValidatorProps } from './package-validation.js';
 
 export {
   useXapiActivity,

@@ -76,6 +76,31 @@ describe('ResourceClient', () => {
     expect(res.id).toBe('c9');
   });
 
+  it('validates a package as multipart and returns the report, valid or not', async () => {
+    const report = {
+      valid: false,
+      version: 'SCORM_1_2',
+      errors: [
+        { code: 'missing_launch_file', severity: 'error', category: 'resources', message: 'gone', path: 'a.html' },
+      ],
+      warnings: [],
+      info: [],
+      stats: { fileCount: 1, totalBytes: 10, launchableCount: 1, scannedFiles: 0 },
+      manifest: null,
+    };
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(report));
+    const rc = new ResourceClient({ baseUrl: 'https://x/v1', apiKey: 'k', fetch: fetchMock, retries: 0 });
+
+    const res = await rc.validateCourse(new Blob(['zip-bytes']));
+
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe('https://x/v1/courses/validate');
+    expect(init.method).toBe('POST');
+    expect((init.body as FormData).get('file')).toBeInstanceOf(Blob);
+    expect(res.valid).toBe(false);
+    expect(res.errors[0]?.code).toBe('missing_launch_file');
+  });
+
   it('surfaces HTTP errors', async () => {
     const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ code: 'course_not_found', message: 'nope' }, 404));
     const rc = new ResourceClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });

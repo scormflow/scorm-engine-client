@@ -581,7 +581,14 @@ export interface paths {
         put?: never;
         /**
          * Validate a SCORM package without registering it
-         * @description Useful for CI / authoring pipelines. No course is persisted.
+         * @description Useful for CI / authoring pipelines. No course is persisted. Runs the
+         *     full package validator — archive structure, manifest well-formedness and
+         *     identifier integrity, launch and resource files, runtime API / CMI data
+         *     model compatibility, basic accessibility, and asset size / format.
+         *
+         *     `valid` is false only when there are `error`-severity issues; warnings
+         *     and info never block an upload. The same checks run offline with
+         *     `npx @scormflow/server validate course.zip`.
          */
         post: {
             parameters: {
@@ -3945,18 +3952,49 @@ export interface components {
             data?: components["schemas"]["Course"][];
             pagination?: components["schemas"]["Pagination"];
         };
+        ValidationIssue: {
+            /**
+             * @description Stable machine-readable code. Errors: `malformed_zip`, `missing_manifest`,
+             *     `manifest_not_at_root`, `malformed_manifest`, `no_scos`, `unknown_version`,
+             *     `unsafe_path`, `duplicate_identifier`, `broken_identifierref`,
+             *     `missing_launch_file`, `too_large`. Warnings: `missing_resource_file`,
+             *     `path_case_mismatch`, `broken_dependency`, `sco_without_href`,
+             *     `default_organization_missing`, `mastery_score_out_of_range`,
+             *     `runtime_api_mismatch`, `cmi_element_version_mismatch`, `a11y_missing_lang`,
+             *     `a11y_img_missing_alt`, `deprecated_plugin_content`, `large_asset`,
+             *     `large_package`. Info: `junk_file`, `missing_title`, `external_launch_url`,
+             *     `no_runtime_api_reference`, `a11y_missing_title`, `unoptimized_image`,
+             *     `uncompressed_image_format`.
+             * @example missing_launch_file
+             */
+            code: string;
+            /** @enum {string} */
+            severity: "error" | "warning" | "info";
+            /** @enum {string} */
+            category: "structure" | "manifest" | "resources" | "runtime" | "accessibility" | "assets";
+            message: string;
+            /** @description Package-relative file the issue is about, when there is one. */
+            path: string | null;
+        };
         ValidationReport: {
-            valid?: boolean;
-            version?: components["schemas"]["ScormVersion"] | null;
-            errors?: {
-                code?: string;
-                message?: string;
-                path?: string | null;
-            }[];
-            warnings?: {
-                code?: string;
-                message?: string;
-            }[];
+            /** @description True when there are no `error`-severity issues. */
+            valid: boolean;
+            version: components["schemas"]["ScormVersion"] | null;
+            errors: components["schemas"]["ValidationIssue"][];
+            warnings: components["schemas"]["ValidationIssue"][];
+            info: components["schemas"]["ValidationIssue"][];
+            stats: {
+                fileCount: number;
+                totalBytes: number;
+                /** @description SCOs found in the default organization. */
+                launchableCount: number;
+                /** @description HTML / JS files whose contents were scanned (each ≤ 2 MiB). */
+                scannedFiles: number;
+            };
+            /** @description The parsed manifest, or null when it could not be parsed. */
+            manifest: {
+                [key: string]: unknown;
+            } | null;
         };
         Attempt: {
             /** Format: uuid */

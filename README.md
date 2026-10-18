@@ -217,6 +217,10 @@ const { data: course, loading, error, refetch } = useCourse(client.resources, co
 const { data: stats } = useCourseAnalytics(client.resources, courseId);
 const { upload, status, progress, result, reset } = useScormUpload(client.resources);
 
+// Pre-flight a package before uploading it (launch files, manifest, runtime API, a11y, assets)
+<PackageValidator onReport={(r) => setCanUpload(r.valid)} />
+const { validate, report } = usePackageValidation(client.resources);
+
 // Certificate viewer — reads the client from <ScormProvider> (or pass `client`)
 <ScormCertificate attemptId={attemptId} token={playerToken} />
 
@@ -382,7 +386,8 @@ Checkboxes reflect the actual state of `main`.
 - [x] Webhooks client (`client.webhooks`), receiver-side signature verification, delivery-log React hooks
 - [ ] Vue adapter — `@scormflow/vue`
 - [ ] Svelte adapter — `@scormflow/svelte`
-- [ ] CLI tool — `npx scormflow validate course.zip`, `extract`, `create`, `preview`
+- [x] Package validation — `client.resources.validateCourse(file)`, `usePackageValidation`, `<PackageValidator/>` / `<PackageValidationView/>` (the offline `scormflow validate course.zip` CLI ships with `@scormflow/server`)
+- [ ] CLI tool — `extract`, `create`, `preview`
 - [ ] Analytics widgets — pre-built React dashboard components
 - [x] Certificate viewer — `<ScormCertificate attemptId={id} />`, `client.certificates`, `useCertificate` / `useCertificates`
 - [x] Live engine events — `client.events.stream()` (SSE over `fetch`, auto-reconnect) + `useEngineEvents`

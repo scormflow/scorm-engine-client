@@ -30,6 +30,7 @@ import {
   type CourseAnalytics,
   type CourseListResult,
   type LearnerAnalytics,
+  type PackageValidationReport,
   type UploadCourseOptions,
 } from './resources.js';
 import {
@@ -67,6 +68,8 @@ export interface CoursesApi {
   list(options?: RequestOptions): Promise<CourseListResult>;
   get(courseId: string, options?: RequestOptions): Promise<Course>;
   upload(file: Blob, options?: UploadCourseOptions): Promise<Course>;
+  /** Validate a package without registering it; resolves with the report, valid or not. */
+  validate(file: Blob, options?: RequestOptions): Promise<PackageValidationReport>;
   delete(courseId: string): Promise<void>;
 }
 
@@ -137,6 +140,7 @@ export class ScormClient {
       list: (options) => resources.listCourses(options),
       get: (courseId, options) => resources.getCourse(courseId, options),
       upload: (file, options) => resources.uploadCourse(file, options),
+      validate: (file, options) => resources.validateCourse(file, options),
       delete: (courseId) => resources.deleteCourse(courseId),
     };
 
