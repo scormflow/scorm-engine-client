@@ -81,6 +81,24 @@ export type { AiInsightState, UseAiUsageOptions } from './use-ai.js';
 export { AiInsightPanel, AiInsightView, describeAiInsight } from './ai-insight-panel.js';
 export type { AiInsightPanelProps, AiInsightViewProps } from './ai-insight-panel.js';
 export {
+  AI_FEATURE_LABELS,
+  AI_PROVIDER_LABELS,
+  AiProviderSettings,
+  AiProviderTestResultView,
+  aiProviderFormFrom,
+  aiProviderNeedsKey,
+  describeAiBudget,
+  emptyAiProviderForm,
+  parseAiProviderForm,
+  useAiProviderEditor,
+} from './ai-provider-settings.js';
+export type {
+  AiProviderEditor,
+  AiProviderForm,
+  AiProviderSettingsProps,
+  ParsedAiProviderForm,
+} from './ai-provider-settings.js';
+export {
   lastIndexAtOrBefore,
   locationAt,
   useCourseHeatmap,

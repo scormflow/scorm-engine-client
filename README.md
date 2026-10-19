@@ -234,6 +234,8 @@ const { data: activity } = useLiveActivity(client.plugins, { minutes: 15 });
 <AiInsightPanel courseId={courseId} kind="recommendations" renderText={(md) => <Markdown>{md}</Markdown>} />
 const { insight, loading, error, generate } = useAiInsight(client.ai);
 const { data: usage } = useAiUsage(client.ai);
+// Tenant AI settings: provider / model / key per feature, budget, kill-switch, "Test key"
+<AiProviderSettings onChange={(feature, config) => console.log(feature, config)} />
 
 // Session replay (admin tooling): play / scrub an attempt, see where a course loses learners
 <SessionReplay attemptId={attemptId} speed={20} />
@@ -307,6 +309,10 @@ const recorder = new ReplayRecorder({ replay: client.replay, attemptId: attempt.
 recorder.navigate('slide-3');                                      // batched, retried, deduped by id
 recorder.record('quiz.skipped', { data: { question: 'q4' } });
 await recorder.stop();                                             // flush what's left
+
+// SDK-less embedding — mint on your server, hand the browser only the URL
+const { url }  = await client.embed.launch(attempt.attemptId, { replay: true });  // <iframe src={url}>
+const script   = client.embed.runtimeScriptUrl({ attemptId, token });             // hydrated <script> for your own page
 
 // Any transport (this is what the player drives)
 await client.runtime.initialize(attempt.attemptId);
@@ -395,7 +401,8 @@ Checkboxes reflect the actual state of `main`.
 
 ### Phase 3 — Category-defining
 - [x] Session replay — `client.replay` (timelines, course heatmaps), opt-in capture (`ReplayRecorder`, `attachReplayCapture`, `replay` option on the player), `<SessionReplay/>`, `<CourseHeatmap/>`, `useSessionReplay` / `useCourseHeatmap` / `useReplayPlayback`
-- [x] AI insights (BYO provider + key) — `client.ai` (provider configs, key test, insights, usage, call log + CSV), `<AiInsightPanel/>`, `useAiInsight` / `useAiUsage` / `useAiProviders` / `useAiCalls`
+- [x] AI insights (BYO provider + key) — `client.ai` (provider configs, key test, insights, usage, call log + CSV), `<AiInsightPanel/>`, `<AiProviderSettings/>`, `useAiInsight` / `useAiUsage` / `useAiProviders` / `useAiCalls` / `useAiProviderEditor`
+- [x] SDK-less embedding — `client.embed` (attempt tokens, `/play` and hydrated `/runtime.js` URLs, `replay` capture opt-in)
 - [ ] AI provider settings UI (config form, usage meter)
 - [ ] A11y — keyboard nav, screen reader announcements, focus management
 - [ ] i18n — built-in locale support for player UI

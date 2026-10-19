@@ -16,6 +16,7 @@
  *  - `plugins`   — installed plugins, live activity (via {@link PluginsClient})
  *  - `ai`        — BYO-AI insights, provider keys, usage (via {@link AiClient})
  *  - `replay`    — session timelines, heatmaps, capture (via {@link ReplayClient})
+ *  - `embed`     — attempt tokens, `/play` + `/runtime.js` URLs (via {@link EmbedClient})
  *
  * The facade owns a single {@link HttpClient} that every namespace shares, so
  * interceptors, headers and retry policy are configured once. `runtime` can be
@@ -47,6 +48,7 @@ import { EventsClient } from './events.js';
 import { PluginsClient } from './plugins.js';
 import { AiClient } from './ai.js';
 import { ReplayClient } from './replay.js';
+import { EmbedClient } from './embed.js';
 
 export interface ScormClientOptions extends HttpClientOptions {
   /**
@@ -113,6 +115,8 @@ export class ScormClient {
   readonly ai: AiClient;
   /** Session replay: attempt timelines, course heatmaps, and the player's capture events. */
   readonly replay: ReplayClient;
+  /** SDK-less embedding: attempt tokens and the engine's player page / runtime script URLs. */
+  readonly embed: EmbedClient;
 
   readonly courses: CoursesApi;
   readonly attempts: AttemptsApi;
@@ -132,6 +136,7 @@ export class ScormClient {
     this.plugins = new PluginsClient(this.http);
     this.ai = new AiClient(this.http);
     this.replay = new ReplayClient(this.http);
+    this.embed = new EmbedClient(this.http);
 
     const resources = this.resources;
     const rest = this.rest;

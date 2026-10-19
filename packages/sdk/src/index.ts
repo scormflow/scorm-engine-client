@@ -213,6 +213,15 @@ export type {
   ReplayTimelineEntry,
 } from './replay.js';
 
+export { EmbedClient } from './embed.js';
+export type {
+  AttemptToken,
+  AttemptTokenOptions,
+  EmbedLaunch,
+  PlayUrlOptions,
+  ReplayCaptureUrlOptions,
+} from './embed.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,
