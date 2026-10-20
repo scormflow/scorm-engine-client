@@ -1029,6 +1029,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/analytics/trends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Daily attempt trends
+         * @description Daily (UTC) counts of attempts started and completed over the last
+         *     `days` days, ending today. Completions are bucketed by finish time
+         *     (falling back to the last commit) and split into passed / failed.
+         *     Every day in the window gets a bucket, so the series can be charted
+         *     without gap filling. Scope to one course with `courseId`.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    days?: number;
+                    courseId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Trend series */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AnalyticsTrends"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/courses/{courseId}/scores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Score distribution for a course
+         * @description Histogram of scaled scores (0–1) across the course's scored attempts.
+         *     Scores below 0 (SCORM 2004 allows -1..1) fall into the first bin;
+         *     `averageScore` and `medianScore` use the raw values.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    bins?: number;
+                };
+                header?: never;
+                path: {
+                    courseId: components["parameters"]["CourseId"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Score distribution */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScoreDistribution"];
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analytics/courses/{courseId}": {
         parameters: {
             query?: never;
@@ -4306,6 +4403,49 @@ export interface components {
             completedCourseCount?: number;
             totalTimeSeconds?: number;
             recentAttempts?: components["schemas"]["Attempt"][];
+        };
+        TrendBucket: {
+            /**
+             * Format: date
+             * @description UTC calendar day.
+             */
+            date: string;
+            started: number;
+            completed: number;
+            passed: number;
+            failed: number;
+            /** @description Mean scaled score of the attempts completed that day. */
+            averageScore: number | null;
+        };
+        AnalyticsTrends: {
+            courseId: string | null;
+            /** @enum {string} */
+            interval: "day";
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            buckets: components["schemas"]["TrendBucket"][];
+            totals: {
+                started: number;
+                completed: number;
+                passed: number;
+                failed: number;
+            };
+        };
+        ScoreBin: {
+            /** @description Inclusive lower bound. */
+            min: number;
+            /** @description Exclusive upper bound (the last bin includes 1). */
+            max: number;
+            count: number;
+        };
+        ScoreDistribution: {
+            courseId: string;
+            scoredCount: number;
+            averageScore: number | null;
+            medianScore: number | null;
+            bins: components["schemas"]["ScoreBin"][];
         };
         XapiAbout: {
             version: string[];

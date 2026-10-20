@@ -59,6 +59,27 @@ describe('ResourceClient', () => {
     expect(learner.totalTimeSeconds).toBe(900);
   });
 
+  it('fetches trends, passing only the query params that are set', async () => {
+    const trends = { courseId: null, interval: 'day', from: '2026-10-19', to: '2026-10-20', buckets: [], totals: { started: 0, completed: 0, passed: 0, failed: 0 } };
+    const fetchMock = vi.fn<FetchLike>(async () => jsonResponse(trends));
+    const rc = new ResourceClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+
+    await rc.getTrends();
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://x/v1/analytics/trends');
+    await rc.getTrends({ days: 7, courseId: 'c 1' });
+    expect(fetchMock.mock.calls[1]![0]).toBe('https://x/v1/analytics/trends?days=7&courseId=c+1');
+  });
+
+  it('fetches a course score distribution', async () => {
+    const fetchMock = vi.fn<FetchLike>(async () =>
+      jsonResponse({ courseId: 'c1', scoredCount: 1, averageScore: 0.8, medianScore: 0.8, bins: [] }),
+    );
+    const rc = new ResourceClient({ baseUrl: 'https://x/v1', fetch: fetchMock, retries: 0 });
+    const res = await rc.getScoreDistribution('c1', { bins: 5 });
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://x/v1/analytics/courses/c1/scores?bins=5');
+    expect(res.medianScore).toBe(0.8);
+  });
+
   it('uploads a package as multipart via fetch when no progress is requested', async () => {
     const fetchMock = vi.fn<FetchLike>(async () => jsonResponse({ id: 'c9', title: 'Uploaded' }, 201));
     const rc = new ResourceClient({ baseUrl: 'https://x/v1', apiKey: 'k', fetch: fetchMock, retries: 0 });

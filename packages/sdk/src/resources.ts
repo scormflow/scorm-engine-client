@@ -71,6 +71,52 @@ export interface LearnerAnalytics {
   recentAttempts: unknown[];
 }
 
+/** One UTC day of `GET /analytics/trends`. */
+export interface TrendBucket {
+  /** `YYYY-MM-DD` (UTC). */
+  date: string;
+  started: number;
+  completed: number;
+  passed: number;
+  failed: number;
+  /** Mean scaled score of the attempts completed that day. */
+  averageScore: number | null;
+}
+
+/** What `GET /analytics/trends` returns: one bucket per day, no gaps. */
+export interface AnalyticsTrends {
+  courseId: string | null;
+  interval: 'day';
+  from: string;
+  to: string;
+  buckets: TrendBucket[];
+  totals: { started: number; completed: number; passed: number; failed: number };
+}
+
+export interface TrendsQuery {
+  /** Window length in days, 1–365 (engine default 30). */
+  days?: number;
+  /** Scope the series to one course. */
+  courseId?: string;
+}
+
+export interface ScoreBin {
+  /** Inclusive lower bound (scaled score). */
+  min: number;
+  /** Exclusive upper bound; the last bin includes 1. */
+  max: number;
+  count: number;
+}
+
+/** What `GET /analytics/courses/:id/scores` returns. */
+export interface ScoreDistribution {
+  courseId: string;
+  scoredCount: number;
+  averageScore: number | null;
+  medianScore: number | null;
+  bins: ScoreBin[];
+}
+
 export interface EngineHealth {
   status: 'ok';
   version: string;
@@ -288,6 +334,26 @@ export class ResourceClient {
       `analytics/learners/${encodeURIComponent(learnerId)}`,
       options?.signal ? { signal: options.signal } : {},
     );
+  }
+
+  /** Daily started / completed / passed / failed series, tenant-wide or for one course. */
+  getTrends(query: TrendsQuery = {}, options?: { signal?: AbortSignal }): Promise<AnalyticsTrends> {
+    return this.http.get<AnalyticsTrends>('analytics/trends', {
+      query: { days: query.days, courseId: query.courseId },
+      ...(options?.signal ? { signal: options.signal } : {}),
+    });
+  }
+
+  /** Scaled-score histogram (2–20 bins, engine default 10) plus mean and median. */
+  getScoreDistribution(
+    courseId: string,
+    query: { bins?: number } = {},
+    options?: { signal?: AbortSignal },
+  ): Promise<ScoreDistribution> {
+    return this.http.get<ScoreDistribution>(`analytics/courses/${encodeURIComponent(courseId)}/scores`, {
+      query: { bins: query.bins },
+      ...(options?.signal ? { signal: options.signal } : {}),
+    });
   }
 }
 

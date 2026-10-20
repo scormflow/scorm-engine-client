@@ -237,6 +237,10 @@ const { data: usage } = useAiUsage(client.ai);
 // Tenant AI settings: provider / model / key per feature, budget, kill-switch, "Test key"
 <AiProviderSettings onChange={(feature, config) => console.log(feature, config)} />
 
+// Analytics dashboard (admin tooling): stat tiles, daily trend chart, score histogram
+<AnalyticsDashboard courseId={courseId} days={30} />   // omit courseId for the tenant overview
+const { data: trends } = useAnalyticsTrends(client.resources, { days: 7, courseId });
+
 // Session replay (admin tooling): play / scrub an attempt, see where a course loses learners
 <SessionReplay attemptId={attemptId} speed={20} />
 <CourseHeatmap courseId={courseId} limit={100} />
@@ -394,7 +398,7 @@ Checkboxes reflect the actual state of `main`.
 - [ ] Svelte adapter — `@scormflow/svelte`
 - [x] Package validation — `client.resources.validateCourse(file)`, `usePackageValidation`, `<PackageValidator/>` / `<PackageValidationView/>` (the offline `scormflow validate course.zip` CLI ships with `@scormflow/server`)
 - [ ] CLI tool — `extract`, `create`, `preview`
-- [ ] Analytics widgets — pre-built React dashboard components
+- [x] Analytics widgets — `<AnalyticsDashboard/>`, `<AnalyticsOverviewCard/>`, `<CourseAnalyticsCard/>`, `<AnalyticsTrendChart/>`, `<ScoreDistributionChart/>` (+ `*View` variants), `client.analytics.trends` / `.scores`, `useAnalyticsOverview` / `useAnalyticsTrends` / `useScoreDistribution` / `useLearnerAnalytics`
 - [x] Certificate viewer — `<ScormCertificate attemptId={id} />`, `client.certificates`, `useCertificate` / `useCertificates`
 - [x] Live engine events — `client.events.stream()` (SSE over `fetch`, auto-reconnect) + `useEngineEvents`
 - [x] Engine plugins — `client.plugins` (list, any plugin's routes, analytics plugin's live activity) + `useLiveActivity` / `usePlugins`
@@ -403,7 +407,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Session replay — `client.replay` (timelines, course heatmaps), opt-in capture (`ReplayRecorder`, `attachReplayCapture`, `replay` option on the player), `<SessionReplay/>`, `<CourseHeatmap/>`, `useSessionReplay` / `useCourseHeatmap` / `useReplayPlayback`
 - [x] AI insights (BYO provider + key) — `client.ai` (provider configs, key test, insights, usage, call log + CSV), `<AiInsightPanel/>`, `<AiProviderSettings/>`, `useAiInsight` / `useAiUsage` / `useAiProviders` / `useAiCalls` / `useAiProviderEditor`
 - [x] SDK-less embedding — `client.embed` (attempt tokens, `/play` and hydrated `/runtime.js` URLs, `replay` capture opt-in)
-- [ ] AI provider settings UI (config form, usage meter)
+- [x] AI provider settings UI — `<AiProviderSettings/>` + `useAiProviderEditor` (config form, key test, budget meter)
 - [ ] A11y — keyboard nav, screen reader announcements, focus management
 - [ ] i18n — built-in locale support for player UI
 - [ ] Course version diff viewer

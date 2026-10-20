@@ -37,6 +37,40 @@ export { useAsyncResource } from './use-resource.js';
 export type { AsyncResource } from './use-resource.js';
 
 export { useCourse, useCourseAnalytics } from './use-course.js';
+export {
+  useAnalyticsOverview,
+  useAnalyticsTrends,
+  useLearnerAnalytics,
+  useScoreDistribution,
+} from './use-analytics.js';
+export {
+  AnalyticsDashboard,
+  AnalyticsOverviewCard,
+  AnalyticsOverviewView,
+  AnalyticsTrendChart,
+  AnalyticsTrendChartView,
+  CourseAnalyticsCard,
+  CourseAnalyticsView,
+  ScoreDistributionChart,
+  ScoreDistributionView,
+  StatTile,
+  formatDuration,
+  formatPercent,
+  formatTrendDate,
+  niceScale,
+} from './analytics-widgets.js';
+export type {
+  AnalyticsDashboardProps,
+  AnalyticsOverviewCardProps,
+  AnalyticsOverviewViewProps,
+  AnalyticsTrendChartProps,
+  AnalyticsTrendChartViewProps,
+  CourseAnalyticsCardProps,
+  CourseAnalyticsViewProps,
+  ScoreDistributionChartProps,
+  ScoreDistributionViewProps,
+  StatTileProps,
+} from './analytics-widgets.js';
 export { useScormUpload } from './use-scorm-upload.js';
 export type { UseScormUploadResult, UploadStatus } from './use-scorm-upload.js';
 export { usePackageValidation } from './use-package-validation.js';
