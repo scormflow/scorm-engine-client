@@ -12,7 +12,18 @@
 import { ScormHttpError } from './errors.js';
 import { HttpClient, type HttpClientOptions } from './http/http-client.js';
 
-export type AiProvider = 'openai' | 'anthropic' | 'gemini' | 'mistral' | 'ollama' | 'openai_compatible';
+export type AiProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'gemini'
+  | 'mistral'
+  | 'ollama'
+  | 'openai_compatible'
+  | 'groq'
+  | 'together'
+  | 'azure_openai'
+  | 'bedrock'
+  | 'custom_http';
 
 /** What can be asked for. */
 export type AiInsightKind = 'insights' | 'summary' | 'recommendations';
@@ -27,6 +38,31 @@ export const AI_PROVIDERS: readonly AiProvider[] = [
   'mistral',
   'ollama',
   'openai_compatible',
+  'groq',
+  'together',
+  'azure_openai',
+  'bedrock',
+  'custom_http',
+];
+
+/** Providers the engine refuses to call without an API key. */
+export const AI_PROVIDERS_NEEDING_KEY: readonly AiProvider[] = [
+  'openai',
+  'anthropic',
+  'gemini',
+  'mistral',
+  'groq',
+  'together',
+  'azure_openai',
+  'bedrock',
+];
+
+/** Providers with no default API base: `baseUrl` is required. */
+export const AI_PROVIDERS_NEEDING_BASE_URL: readonly AiProvider[] = [
+  'openai_compatible',
+  'azure_openai',
+  'bedrock',
+  'custom_http',
 ];
 
 export const AI_FEATURES: readonly AiFeature[] = ['default', 'insights', 'summary', 'recommendations'];
@@ -55,9 +91,17 @@ export interface AiProviderConfig {
 export interface AiProviderConfigInput {
   provider: AiProvider;
   model: string;
-  /** Required for openai, anthropic, gemini, mistral. Omit to keep the stored key; `null` removes it. */
+  /**
+   * Required for the providers in {@link AI_PROVIDERS_NEEDING_KEY}. For `bedrock`, a Bedrock API
+   * key or IAM credentials as `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]`.
+   * Omit to keep the stored key; `null` removes it.
+   */
   apiKey?: string | null;
-  /** Required for `openai_compatible`; overrides the provider's API base otherwise. */
+  /**
+   * Required for the providers in {@link AI_PROVIDERS_NEEDING_BASE_URL}: the Azure resource
+   * endpoint, the regional `bedrock-runtime` endpoint, or the exact URL `custom_http` POSTs to.
+   * Overrides the provider's API base otherwise.
+   */
   baseUrl?: string | null;
   redactPii?: boolean;
   enabled?: boolean;

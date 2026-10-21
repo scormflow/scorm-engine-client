@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import {
   AI_FEATURES,
   AI_PROVIDERS,
+  AI_PROVIDERS_NEEDING_BASE_URL,
+  AI_PROVIDERS_NEEDING_KEY,
   type AiClient,
   type AiFeature,
   type AiProvider,
@@ -48,6 +50,19 @@ export const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
   mistral: 'Mistral',
   ollama: 'Ollama (local)',
   openai_compatible: 'OpenAI-compatible',
+  groq: 'Groq',
+  together: 'Together AI',
+  azure_openai: 'Azure OpenAI',
+  bedrock: 'AWS Bedrock',
+  custom_http: 'Custom HTTP endpoint',
+};
+
+/** Example base URLs for the providers that need one. */
+const BASE_URL_HINTS: Partial<Record<AiProvider, string>> = {
+  openai_compatible: 'https://llm.example.com/v1',
+  azure_openai: 'https://<resource>.openai.azure.com',
+  bedrock: 'https://bedrock-runtime.us-east-1.amazonaws.com',
+  custom_http: 'https://ai.example.com/complete',
 };
 
 export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
@@ -57,11 +72,12 @@ export const AI_FEATURE_LABELS: Record<AiFeature, string> = {
   recommendations: 'Recommendations',
 };
 
-/** Providers that cannot work without an API key. */
-const KEYED: ReadonlySet<AiProvider> = new Set(['openai', 'anthropic', 'gemini', 'mistral']);
-
 export function aiProviderNeedsKey(provider: AiProvider): boolean {
-  return KEYED.has(provider);
+  return AI_PROVIDERS_NEEDING_KEY.includes(provider);
+}
+
+export function aiProviderNeedsBaseUrl(provider: AiProvider): boolean {
+  return AI_PROVIDERS_NEEDING_BASE_URL.includes(provider);
 }
 
 export function emptyAiProviderForm(provider: AiProvider = 'openai'): AiProviderForm {
@@ -110,8 +126,8 @@ export function parseAiProviderForm(form: AiProviderForm, stored?: AiProviderCon
 
   const baseUrl = form.baseUrl.trim();
   if (baseUrl && !/^https?:\/\/\S+$/i.test(baseUrl)) return { ok: false, error: 'Base URL must start with http:// or https://.' };
-  if (form.provider === 'openai_compatible' && !baseUrl) {
-    return { ok: false, error: 'An OpenAI-compatible provider needs a base URL.' };
+  if (aiProviderNeedsBaseUrl(form.provider) && !baseUrl) {
+    return { ok: false, error: `${AI_PROVIDER_LABELS[form.provider]} needs a base URL (e.g. ${BASE_URL_HINTS[form.provider]}).` };
   }
 
   const apiKey = form.apiKey.trim();
@@ -485,7 +501,7 @@ export function AiProviderSettings({
             </select>
           </label>
           <label style={labelStyle} htmlFor={fieldId('model')}>
-            Model
+            {form.provider === 'azure_openai' ? 'Deployment name' : 'Model'}
             <input id={fieldId('model')} style={inputStyle} value={form.model} onChange={(e) => set('model', e.target.value)} required />
           </label>
           <label style={labelStyle} htmlFor={fieldId('key')}>
@@ -496,13 +512,26 @@ export function AiProviderSettings({
               type="password"
               autoComplete="off"
               value={form.apiKey}
-              placeholder={stored?.hasKey && stored.provider === form.provider ? `Stored (${stored.keyHint ?? '…'}) — blank keeps it` : ''}
+              placeholder={
+                stored?.hasKey && stored.provider === form.provider
+                  ? `Stored (${stored.keyHint ?? '…'}) — blank keeps it`
+                  : form.provider === 'bedrock'
+                    ? 'Bedrock API key, or ACCESS_KEY_ID:SECRET'
+                    : ''
+              }
               onChange={(e) => set('apiKey', e.target.value)}
             />
           </label>
           <label style={labelStyle} htmlFor={fieldId('base')}>
-            Base URL{form.provider === 'openai_compatible' ? '' : ' (optional)'}
-            <input id={fieldId('base')} style={inputStyle} type="url" value={form.baseUrl} onChange={(e) => set('baseUrl', e.target.value)} />
+            Base URL{aiProviderNeedsBaseUrl(form.provider) ? '' : ' (optional)'}
+            <input
+              id={fieldId('base')}
+              style={inputStyle}
+              type="url"
+              value={form.baseUrl}
+              placeholder={BASE_URL_HINTS[form.provider] ?? ''}
+              onChange={(e) => set('baseUrl', e.target.value)}
+            />
           </label>
           <label style={labelStyle} htmlFor={fieldId('cap')}>
             Monthly token cap

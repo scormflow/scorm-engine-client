@@ -177,7 +177,14 @@ export type {
 export { PluginsClient, isPluginMissing } from './plugins.js';
 export type { ActivityBucket, ActivityQuery, ActivityReport, EventCounts, InstalledPlugin } from './plugins.js';
 
-export { AiClient, AI_FEATURES, AI_PROVIDERS, isAiUnavailable } from './ai.js';
+export {
+  AiClient,
+  AI_FEATURES,
+  AI_PROVIDERS,
+  AI_PROVIDERS_NEEDING_BASE_URL,
+  AI_PROVIDERS_NEEDING_KEY,
+  isAiUnavailable,
+} from './ai.js';
 export type {
   AiBudgetAlertEventData,
   AiCall,

@@ -5075,8 +5075,14 @@ export interface components {
             "error-code": "1" | "2" | "3";
             "error-text": string;
         };
-        /** @enum {string} */
-        AiProvider: "openai" | "anthropic" | "gemini" | "mistral" | "ollama" | "openai_compatible";
+        /**
+         * @description `azure_openai` calls the v1 Chat Completions API of an Azure OpenAI resource; `model` is the
+         *     deployment name. `bedrock` calls the Bedrock Converse API. `custom_http` POSTs
+         *     `{ model, system, prompt, maxTokens }` to `baseUrl` (with `Authorization: Bearer <apiKey>` when a
+         *     key is set) and expects `{ text, inputTokens?, outputTokens?, model? }` back.
+         * @enum {string}
+         */
+        AiProvider: "openai" | "anthropic" | "gemini" | "mistral" | "ollama" | "openai_compatible" | "groq" | "together" | "azure_openai" | "bedrock" | "custom_http";
         /** @enum {string} */
         AiFeature: "default" | "insights" | "summary" | "recommendations";
         /** @enum {string} */
@@ -5111,9 +5117,19 @@ export interface components {
         AiProviderConfigInput: {
             provider: components["schemas"]["AiProvider"];
             model: string;
-            /** @description Required for openai, anthropic, gemini and mistral. Omit to keep the stored key; null removes it. */
+            /**
+             * @description Required for openai, anthropic, gemini, mistral, groq, together, azure_openai and bedrock.
+             *     For bedrock, either a Bedrock API key or IAM credentials as
+             *     `ACCESS_KEY_ID:SECRET_ACCESS_KEY[:SESSION_TOKEN]` (requests are then SigV4-signed).
+             *     Omit to keep the stored key; null removes it.
+             */
             apiKey?: string | null;
-            /** @description Required for `openai_compatible`. Private addresses need `AI_ALLOW_PRIVATE_URLS`. */
+            /**
+             * @description Required for `openai_compatible`, `azure_openai` (the resource endpoint, e.g.
+             *     `https://<resource>.openai.azure.com`), `bedrock` (the regional endpoint, e.g.
+             *     `https://bedrock-runtime.us-east-1.amazonaws.com`) and `custom_http` (the exact URL to POST to).
+             *     Private addresses need `AI_ALLOW_PRIVATE_URLS`.
+             */
             baseUrl?: string | null;
             /** @default true */
             redactPii: boolean;
