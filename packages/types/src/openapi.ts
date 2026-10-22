@@ -356,6 +356,10 @@ export interface paths {
                         file: string;
                         /** @description Override the title parsed from the manifest. */
                         title?: string;
+                        /** @description Label for release 1 (default `1.0`). See `CourseVersion.label`. */
+                        label?: string;
+                        /** @description Changelog entry for release 1. */
+                        releaseNotes?: string;
                     };
                     "application/json": {
                         /** @description Storage key returned by /courses/upload-url */
@@ -582,10 +586,18 @@ export interface paths {
          *     scoped to an attempt on this course — supplied as a bearer token, `?token=`,
          *     or the `sf_attempt` cookie the `/play` page sets so the SCO's relative
          *     sub-resource requests authenticate automatically.
+         *
+         *     Content is versioned: an attempt token always reads the release its
+         *     attempt launched on (see `CourseVersion`), even after a newer release is
+         *     published or the course is rolled back. API-key callers read the live
+         *     release, or any release with `?version=`.
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Release number to read (API key only; ignored for attempt tokens). */
+                    version?: number;
+                };
                 header?: never;
                 path: {
                     courseId: components["parameters"]["CourseId"];
@@ -674,6 +686,107 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{courseId}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        /** List a course's releases (newest first) — its changelog */
+        get: operations["listCourseVersions"];
+        put?: never;
+        /**
+         * Publish a new release of a course
+         * @description Uploads a new package for an existing course. It is stored under its own
+         *     prefix, so earlier releases stay available. By default the release goes
+         *     live immediately: the course's title, launch URL, manifest and SCO list
+         *     follow it (SCO rows are matched by manifest identifier and keep their
+         *     ids). Attempts already in progress stay on the release they started.
+         *
+         *     Without `label`, the previous `X.Y` label is bumped (`bump=minor` →
+         *     `1.1`, `bump=major` → `2.0`); a free-form previous label falls back to
+         *     `<number>.0`. Emits `course.version.published`.
+         *
+         *     A course uploaded before versioning gets a baseline release 1 (without a
+         *     file inventory) the first time a new release is published.
+         */
+        post: operations["publishCourseVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{courseId}/versions/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        /** Diff two releases (metadata, SCOs, assets) */
+        get: operations["diffCourseVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/courses/{courseId}/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        /** Get one release */
+        get: operations["getCourseVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a release's notes
+         * @description Releases are immutable apart from their changelog entry.
+         */
+        patch: operations["updateCourseVersion"];
+        trace?: never;
+    };
+    "/courses/{courseId}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make an existing release live again
+         * @description Points the course at release `version` (older or newer). New attempts
+         *     launch it; attempts in progress keep their pinned release. A no-op when
+         *     it is already live. Emits `course.version.rolled_back`.
+         */
+        post: operations["rollbackCourse"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4079,10 +4192,101 @@ export interface components {
             masteryScore?: number | null;
             manifest?: components["schemas"]["ManifestMetadata"];
             sizeBytes?: number;
+            /** @description The live release; null for a course uploaded before versioning. */
+            currentVersion?: null | {
+                number: number;
+                label: string;
+            };
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt?: string;
+        };
+        /** @description An immutable release of a course package. */
+        CourseVersion: {
+            id: string;
+            courseId: string;
+            /** @description 1, 2, 3… in publish order. */
+            number: number;
+            /** @description Human release name, e.g. `1.0`, `1.1`, `2.0`. */
+            label: string;
+            releaseNotes: string | null;
+            /** @description Whether this is the live release. */
+            current: boolean;
+            title: string;
+            description: string | null;
+            scormVersion: components["schemas"]["ScormVersion"];
+            masteryScore: number | null;
+            /** @description Primary launch file */
+            launchHref: string;
+            scoCount: number;
+            /** @description 0 for a baseline backfilled from a pre-versioning course. */
+            fileCount: number;
+            sizeBytes: number;
+            /** @description SHA-256 of the uploaded ZIP; null for a backfilled baseline. */
+            packageSha256: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        CourseVersionList: {
+            data: components["schemas"]["CourseVersion"][];
+            /** @description Number of the live release. */
+            currentVersion: number | null;
+        };
+        VersionFieldChange: {
+            field: string;
+            from: unknown;
+            to: unknown;
+        };
+        VersionSco: {
+            identifier: string;
+            title: string;
+            launchHref: string;
+            parameters: string | null;
+        };
+        VersionFile: {
+            path: string;
+            sizeBytes: number;
+            sha256: string;
+        };
+        CourseVersionDiff: {
+            from: components["schemas"]["CourseVersionRef"];
+            to: components["schemas"]["CourseVersionRef"];
+            /** @description Nothing differs. Always false when assets can't be compared. */
+            identical: boolean;
+            /** @description Changed fields among `title`, `description`, `scormVersion`, `masteryScore`, `launchHref`. */
+            metadata: components["schemas"]["VersionFieldChange"][];
+            /** @description SCOs matched by manifest identifier. */
+            scos: {
+                added: components["schemas"]["VersionSco"][];
+                removed: components["schemas"]["VersionSco"][];
+                changed: {
+                    identifier: string;
+                    changes: components["schemas"]["VersionFieldChange"][];
+                }[];
+            };
+            /** @description Files matched by path and compared by SHA-256; null when either side is a backfilled baseline. */
+            assets: null | {
+                added: components["schemas"]["VersionFile"][];
+                removed: components["schemas"]["VersionFile"][];
+                modified: {
+                    path: string;
+                    fromSizeBytes: number;
+                    toSizeBytes: number;
+                }[];
+                unchangedCount: number;
+                bytesDelta: number;
+            };
+            /**
+             * @description Human-readable changes that could strand a learner relaunching on
+             *     the new release: a removed SCO, a SCO launching a different file, a
+             *     SCORM edition change. Advisory — running attempts stay pinned.
+             */
+            breakingChanges: string[];
+        };
+        CourseVersionRef: {
+            number: number;
+            label: string;
         };
         Sco: {
             id: string;
@@ -4788,7 +4992,7 @@ export interface components {
             locations: components["schemas"]["HeatmapLocation"][];
         };
         /** @enum {string} */
-        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "ai.budget.alert" | "webhook.test";
+        WebhookEventType: "attempt.started" | "attempt.suspended" | "attempt.terminated" | "course.completed" | "course.passed" | "course.failed" | "score.updated" | "objective.mastered" | "certificate.issued" | "certificate.revoked" | "cmi5.session.terminated" | "cmi5.session.abandoned" | "cmi5.au.waived" | "cmi5.block.satisfied" | "cmi5.course.satisfied" | "xapi.statement.stored" | "ai.budget.alert" | "course.version.published" | "course.version.rolled_back" | "webhook.test";
         WebhookEndpoint: {
             id: string;
             /** Format: uri */
@@ -5427,6 +5631,212 @@ export interface operations {
                     "application/json": components["schemas"]["ReadinessReport"];
                 };
             };
+        };
+    };
+    listCourseVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Releases */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersionList"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    publishCourseVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description SCORM package ZIP.
+                     */
+                    file: string;
+                    /** @description Release label, e.g. `1.1`. Unique per course. */
+                    label?: string;
+                    /**
+                     * @default minor
+                     * @enum {string}
+                     */
+                    bump?: "major" | "minor";
+                    releaseNotes?: string;
+                    /** @description Override the title parsed from the manifest. */
+                    title?: string;
+                    /**
+                     * @description `false` stores the release without making it live (activate later with rollback).
+                     * @default true
+                     * @enum {string}
+                     */
+                    activate?: "true" | "false";
+                };
+            };
+        };
+        responses: {
+            /** @description Release published */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description The label is already used by another release of this course. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Invalid SCORM package */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    diffCourseVersions: {
+        parameters: {
+            query?: {
+                /** @description Defaults to the release before `to`. */
+                from?: number;
+                /** @description Defaults to the live release. */
+                to?: number;
+            };
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diff */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersionDiff"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCourseVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Release */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateCourseVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    releaseNotes: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated release */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    rollbackCourse: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                courseId: components["parameters"]["CourseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The release that is now live */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
         };
     };
     syncAttemptCommits: {

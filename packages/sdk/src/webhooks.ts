@@ -25,6 +25,8 @@ export type WebhookEventType =
   | 'course.failed'
   | 'score.updated'
   | 'objective.mastered'
+  | 'course.version.published'
+  | 'course.version.rolled_back'
   | 'certificate.issued'
   | 'certificate.revoked'
   | 'cmi5.session.terminated'

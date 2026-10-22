@@ -92,6 +92,8 @@ describe('ResourceClient', () => {
     expect(init.method).toBe('POST');
     expect(init.body).toBeInstanceOf(FormData);
     expect((init.body as FormData).get('title')).toBe('Uploaded');
+    // Fields must precede the file or the engine never reads them.
+    expect([...(init.body as FormData).keys()]).toEqual(['title', 'file']);
     // No JSON content-type forced for multipart uploads.
     expect((init.headers as Record<string, string>)['content-type']).toBeUndefined();
     expect(res.id).toBe('c9');

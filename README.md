@@ -221,6 +221,12 @@ const { upload, status, progress, result, reset } = useScormUpload(client.resour
 <PackageValidator onReport={(r) => setCanUpload(r.valid)} />
 const { validate, report } = usePackageValidation(client.resources);
 
+// Course releases (admin tooling): history, notes, per-release diff, "Make live", publish form
+<CourseVersionHistory courseId={courseId} confirmRollback={(v) => confirm(`Make ${v.label} live?`)} />
+const { data: releases, publish, rollback } = useCourseVersions(client.courses.versions, courseId);
+const { data: diff } = useCourseVersionDiff(client.courses.versions, courseId, { from: 1, to: 2 });
+{diff && <CourseVersionDiffView diff={diff} />}
+
 // Certificate viewer — reads the client from <ScormProvider> (or pass `client`)
 <ScormCertificate attemptId={attemptId} token={playerToken} />
 
@@ -271,6 +277,11 @@ const course   = await client.courses.upload(file, { onProgress: (p) => ... });
 const attempt  = await client.attempts.start(course.id, { learnerId });
 const overview = await client.analytics.overview();
 const stats    = await client.analytics.course(course.id);
+
+// Course versioning — every upload is a release; running attempts stay on theirs
+const v2       = await client.courses.versions.publish(course.id, zip, { releaseNotes: 'New quiz' });  // 1.0 → 1.1
+const changes  = await client.courses.versions.diff(course.id);        // live vs previous: metadata, SCOs, files
+await client.courses.versions.rollback(course.id, 1);                  // make 1.0 live again
 
 // cmi5 — the engine is the LMS; the AU talks to its LRS directly
 const reg      = await client.cmi5.register({ courseId: cmi5Course.id, learnerId });
@@ -410,7 +421,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] AI provider settings UI — `<AiProviderSettings/>` + `useAiProviderEditor` (config form, key test, budget meter)
 - [ ] A11y — keyboard nav, screen reader announcements, focus management
 - [ ] i18n — built-in locale support for player UI
-- [ ] Course version diff viewer
+- [x] Course versioning — `client.courses.versions` (publish, list, notes, diff, rollback), `<CourseVersionHistory/>`, `<CourseVersionDiffView/>`, `useCourseVersions` / `useCourseVersionDiff`
 - [ ] Universal content gateway client (SCORM / xAPI / cmi5 / H5P / HTML / video / PDF)
 
 ---

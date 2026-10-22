@@ -206,6 +206,18 @@ export type {
   SetAiProviderResult,
 } from './ai.js';
 
+export { CourseVersionsClient } from './course-versions.js';
+export type {
+  CourseVersion,
+  CourseVersionDiff,
+  CourseVersionList,
+  PublishVersionOptions,
+  VersionAssetDiff,
+  VersionDiffQuery,
+  VersionFieldChange,
+  VersionFile,
+  VersionSco,
+} from './course-versions.js';
 export { ReplayClient, ReplayRecorder, REPLAY_EVENT_TYPES, isReplayCaptureDisabled } from './replay.js';
 export type {
   AttemptReplay,

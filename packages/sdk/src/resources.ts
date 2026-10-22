@@ -34,6 +34,8 @@ export interface Course {
   scos: ScoSummary[];
   primaryScoId: string | null;
   masteryScore: number | null;
+  /** The live release; null for a course uploaded before versioning. */
+  currentVersion?: { number: number; label: string } | null;
   createdAt: string;
   updatedAt: string;
   [key: string]: unknown;
@@ -172,6 +174,10 @@ export interface PackageValidationReport {
 export interface UploadCourseOptions {
   /** Override the title parsed from the manifest. */
   title?: string;
+  /** Label for release 1 (engine default `1.0`). */
+  label?: string;
+  /** Changelog entry for release 1. */
+  releaseNotes?: string;
   /** Progress callback in [0, 1]. Only fires on the XHR path (browser). */
   onProgress?: (fraction: number) => void;
   signal?: AbortSignal;
@@ -243,13 +249,10 @@ export class ResourceClient {
     if (options.onProgress && typeof XMLHttpRequest !== 'undefined') {
       return this.uploadViaXhr(file, options);
     }
-    const form = new FormData();
-    form.append('file', file);
-    if (options.title) form.append('title', options.title);
     return this.http.request<Course>({
       path: 'courses',
       method: 'POST',
-      body: form,
+      body: uploadForm(file, options),
       ...(options.signal ? { signal: options.signal } : {}),
     });
   }
@@ -309,10 +312,7 @@ export class ResourceClient {
       xhr.onerror = () => reject(new ScormNetworkError('Upload failed'));
       xhr.onabort = () => reject(new ScormAbortError());
 
-      const form = new FormData();
-      form.append('file', file);
-      if (options.title) form.append('title', options.title);
-      xhr.send(form);
+      xhr.send(uploadForm(file, options));
     });
   }
 
@@ -364,6 +364,20 @@ function isReadinessReport(body: unknown): body is ReadinessReport {
     (body as { status?: unknown }).status === 'not_ready' &&
     typeof (body as { checks?: unknown }).checks === 'object'
   );
+}
+
+/**
+ * Multipart body for `POST /courses`. Text fields go before the file: the
+ * engine reads the package as soon as it reaches the file part, so fields
+ * after it are never seen.
+ */
+function uploadForm(file: Blob, options: UploadCourseOptions): FormData {
+  const form = new FormData();
+  if (options.title) form.append('title', options.title);
+  if (options.label) form.append('label', options.label);
+  if (options.releaseNotes) form.append('releaseNotes', options.releaseNotes);
+  form.append('file', file);
+  return form;
 }
 
 function safeParse(text: string): ScormErrorBody | undefined {

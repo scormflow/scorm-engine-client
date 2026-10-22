@@ -84,7 +84,8 @@ export function describeValidation(report: PackageValidationReport): string {
   return parts.length ? `${verdict} — ${parts.join(', ')}` : `${verdict} — no problems found`;
 }
 
-function formatBytes(n: number): string {
+export function formatBytes(n: number): string {
+  if (n < 0) return `-${formatBytes(-n)}`;
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
   if (n >= 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${n} B`;
