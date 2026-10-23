@@ -41,6 +41,26 @@ export interface Course {
   [key: string]: unknown;
 }
 
+export interface LaunchUrlQuery {
+  /** Attempt on the course to launch (content is only readable with an attempt token). */
+  attemptId: string;
+  /** SCO override by manifest `identifier`; defaults to the attempt's SCO, then the primary entry. */
+  scoId?: string;
+  /** Token lifetime (60–86400 s); defaults to the engine's `JWT_ATTEMPT_TTL_SECONDS`. */
+  ttlSeconds?: number;
+}
+
+/** A signed, iframe-ready URL to an attempt's SCO. */
+export interface LaunchUrl {
+  /** Absolute content URL carrying `?token=`; feed it to the player's `launchUrl`. */
+  launchUrl: string;
+  /** The attempt token in `launchUrl`; it also authenticates the attempt's runtime calls. */
+  token: string;
+  expiresAt: string;
+  /** Manifest identifier of the launched SCO; null for the release's primary entry. */
+  scoId: string | null;
+}
+
 export interface CourseListResult {
   data: Course[];
   pagination: { nextCursor: string | null; hasMore: boolean };
@@ -234,6 +254,14 @@ export class ResourceClient {
       `courses/${encodeURIComponent(courseId)}`,
       options?.signal ? { signal: options.signal } : {},
     );
+  }
+
+  /** Signed iframe URL (and token) for an attempt's SCO. Server-side: needs the API key. */
+  getLaunchUrl(courseId: string, query: LaunchUrlQuery, options?: { signal?: AbortSignal }): Promise<LaunchUrl> {
+    return this.http.get<LaunchUrl>(`courses/${encodeURIComponent(courseId)}/launch-url`, {
+      query: { attemptId: query.attemptId, scoId: query.scoId, ttlSeconds: query.ttlSeconds },
+      ...(options?.signal ? { signal: options.signal } : {}),
+    });
   }
 
   deleteCourse(courseId: string): Promise<void> {

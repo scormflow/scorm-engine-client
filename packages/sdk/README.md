@@ -31,8 +31,8 @@ namespaces:
 
 | Namespace | Methods |
 |-----------|---------|
-| `client.courses` | `list()`, `get(id)`, `upload(file, { title, onProgress })`, `validate(file)` (full validation report, nothing stored), `delete(id)` |
-| `client.attempts` | `start(courseId, { learnerId, scoId, mode, restart })` |
+| `client.courses` | `list()`, `get(id)`, `upload(file, { title, onProgress })`, `validate(file)` (full validation report, nothing stored), `delete(id)`, `launchUrl(id, { attemptId, scoId?, ttlSeconds? })` (signed iframe URL + attempt token), `versions` |
+| `client.attempts` | `start(courseId, { learnerId, scoId, mode, restart })` — `scoId` is the SCO's manifest `identifier` |
 | `client.runtime` | `initialize(attemptId)`, `commit(attemptId, values)`, `terminate(attemptId, values?)` |
 | `client.analytics` | `overview()`, `course(id)`, `learner(id)` |
 | `client.xapi` | the built-in LRS — see [xAPI](#xapi) |
@@ -56,6 +56,16 @@ const client = new ScormClient({
   baseUrl: 'https://your-engine.example.com/v1',
   transport: new LocalStorageTransport(),
 });
+```
+
+To play an engine-hosted course in `@scormflow/player` / `<ScormPlayer/>`, start
+the attempt and ask for its launch URL on your server (both need the API key),
+then hand the URL and token to the browser:
+
+```ts
+const { attemptId } = await client.attempts.start(courseId, { learnerId, scoId: 'ITEM-2' });
+const { launchUrl, token } = await client.courses.launchUrl(courseId, { attemptId });
+// Browser: launchUrl -> the player's iframe; token -> a RestTransport bearer for the runtime calls.
 ```
 
 Every namespace is also usable standalone — `RestTransport` and

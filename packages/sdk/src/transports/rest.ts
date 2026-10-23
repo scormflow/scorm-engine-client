@@ -18,6 +18,10 @@ export type RestTransportOptions = HttpClientOptions;
 export interface StartAttemptRequest {
   learnerId: string;
   learnerName?: string;
+  /**
+   * Target SCO by manifest `identifier` (`Course.scos[].identifier`); defaults to
+   * the primary entry. Open attempts resume per SCO; an unknown one is a 404.
+   */
   scoId?: string;
   mode?: 'normal' | 'browse' | 'review';
   /** Force a new attempt instead of resuming an open one. */

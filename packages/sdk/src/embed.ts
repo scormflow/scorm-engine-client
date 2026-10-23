@@ -38,7 +38,7 @@ export interface PlayUrlOptions extends ReplayCaptureUrlOptions {
   source?: 'engine' | 'external';
   /** Absolute SCO entry URL, required when `source` is `external`. */
   src?: string;
-  /** Launch a SCO other than the attempt's default (engine source only). */
+  /** Launch a SCO other than the attempt's own, by manifest `identifier` (engine source only). */
   scoId?: string;
 }
 
