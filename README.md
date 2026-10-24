@@ -222,6 +222,9 @@ const { upload, status, progress, result, reset } = useScormUpload(client.resour
 
 // Live engine events (admin tooling — needs an API key)
 const { events, status } = useEngineEvents(client.events, { types: ['course.completed'] });
+
+// Live per-minute activity from the engine's analytics plugin (admin tooling)
+const { data: activity } = useLiveActivity(client.plugins, { minutes: 15 });
 ```
 
 > Wrap the tree in `<ScormProvider client={client}>` and hooks / components can
@@ -265,6 +268,10 @@ const check    = await client.certificates.verify('7KQ2-M9XD-4TPA');        // p
 // Live events — Server-Sent Events, same payload as a webhook, auto-reconnect
 const stream   = client.events.stream({ types: ['course.completed'], onEvent: (e) => console.log(e.data) });
 stream.close();
+
+// Plugins — what the engine has installed, and the analytics plugin's live counts
+const installed = await client.plugins.list();
+const activity = await client.plugins.activity({ minutes: 15 });
 
 // Any transport (this is what the player drives)
 await client.runtime.initialize(attempt.attemptId);
@@ -318,7 +325,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Typed error hierarchy (`ScormError`, `ScormHttpError`, `ScormNetworkError`, ...)
 - [x] Unit tests (Vitest) for transports + HTTP client
 - [x] `ResourceClient` — courses + analytics REST surface, upload with progress
-- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events`)
+- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events` / `plugins`)
 - [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
 - [x] Automatic token refresh on `RestTransport` (`onUnauthorized` callback refreshes the token on a 401 and retries once; `TokenProvider` still supported)
 - [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
@@ -348,6 +355,7 @@ Checkboxes reflect the actual state of `main`.
 - [ ] Analytics widgets — pre-built React dashboard components
 - [x] Certificate viewer — `<ScormCertificate attemptId={id} />`, `client.certificates`, `useCertificate` / `useCertificates`
 - [x] Live engine events — `client.events.stream()` (SSE over `fetch`, auto-reconnect) + `useEngineEvents`
+- [x] Engine plugins — `client.plugins` (list, any plugin's routes, analytics plugin's live activity) + `useLiveActivity` / `usePlugins`
 
 ### Phase 3 — Category-defining
 - [ ] Session replay viewer (`<SessionReplay attemptId={id} />`)

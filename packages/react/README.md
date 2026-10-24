@@ -256,6 +256,32 @@ It connects on mount, reconnects on its own, and closes on unmount or when
 `enabled` turns false. The stream needs a tenant API key, so this belongs in
 admin tooling whose `client` talks to your backend — not in a learner-facing page.
 
+## Live activity (analytics plugin)
+
+When the engine runs the `analytics` plugin, `useLiveActivity` polls its
+per-minute event counts — a cheap "what is happening right now" panel:
+
+```tsx
+import { isPluginMissing } from '@scormflow/sdk';
+import { topEventTypes, useLiveActivity } from '@scormflow/react';
+
+function NowPanel() {
+  const { data, error } = useLiveActivity(client.plugins, { minutes: 15, refreshIntervalMs: 10_000 });
+  if (isPluginMissing(error)) return <p>Turn on the engine's analytics plugin.</p>;
+  if (!data) return null;
+  return (
+    <ul>
+      {topEventTypes(data, 3).map(({ type, count }) => <li key={type}>{type}: {count}</li>)}
+    </ul>
+  );
+}
+```
+
+The previous report stays in `data` while a refresh runs; `refreshIntervalMs: 0`
+fetches once. `usePlugins(client.plugins)` lists the installed plugins, and
+`usePluginsClient()` reads `client.plugins` from `<ScormProvider>`. Both need the
+API key — admin tooling only.
+
 ## Certificates
 
 `<ScormCertificate/>` shows one attempt's completion certificate with a PDF

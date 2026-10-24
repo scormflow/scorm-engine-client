@@ -2560,6 +2560,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List installed plugins */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Installed plugins, in install order. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data: components["schemas"]["InstalledPlugin"][];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plugins/analytics/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live event activity (analytics plugin)
+         * @description The tenant's engine events counted per minute over the last `minutes`
+         *     minutes, oldest minute first, empty minutes included. Only present
+         *     when the `analytics` plugin is installed (404 otherwise). Test
+         *     webhook events are not counted.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Window size; defaults to, and may not exceed, the plugin's retention (60 by default). */
+                    minutes?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Activity report */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ActivityReport"];
+                    };
+                };
+                /** @description `minutes` is not an integer within the retention window (`code: invalid_request`). */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                429: components["responses"]["TooManyRequests"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/{webhookId}": {
         parameters: {
             query?: never;
@@ -3846,6 +3943,36 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        InstalledPlugin: {
+            /** @example analytics */
+            name: string;
+            /** @example 1.0.0 */
+            version: string | null;
+        };
+        /** @description Event count by event type; types with no events are omitted. */
+        EventCounts: {
+            [key: string]: number;
+        };
+        ActivityBucket: {
+            /**
+             * Format: date-time
+             * @description Start of the minute.
+             */
+            minute: string;
+            total: number;
+            counts: components["schemas"]["EventCounts"];
+        };
+        ActivityReport: {
+            windowMinutes: number;
+            /**
+             * Format: date-time
+             * @description Start of the oldest minute in `timeline`.
+             */
+            since: string;
+            total: number;
+            totals: components["schemas"]["EventCounts"];
+            timeline: components["schemas"]["ActivityBucket"][];
         };
         WebhookDelivery: {
             id: string;

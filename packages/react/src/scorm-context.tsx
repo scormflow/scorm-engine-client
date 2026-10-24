@@ -1,6 +1,7 @@
 import { createContext, createElement, useContext, type ReactNode } from 'react';
 import type {
   CertificatesClient,
+  PluginsClient,
   Cmi5Client,
   ResourceClient,
   ScormClient,
@@ -76,6 +77,10 @@ export function useWebhooksClient(): WebhooksClient {
 /** The provided client's certificates surface. */
 export function useCertificatesClient(): CertificatesClient {
   return useScormClient().certificates;
+}
+
+export function usePluginsClient(): PluginsClient {
+  return useScormClient().plugins;
 }
 
 /** The provided client, or null outside a provider — for components that also accept a client prop. */
