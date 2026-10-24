@@ -33,6 +33,7 @@ export type WebhookEventType =
   | 'cmi5.block.satisfied'
   | 'cmi5.course.satisfied'
   | 'xapi.statement.stored'
+  | 'ai.budget.alert'
   | 'webhook.test';
 
 /** An event type, or `*` for every event. */

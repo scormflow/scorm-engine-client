@@ -1,5 +1,6 @@
 import { createContext, createElement, useContext, type ReactNode } from 'react';
 import type {
+  AiClient,
   CertificatesClient,
   PluginsClient,
   Cmi5Client,
@@ -81,6 +82,11 @@ export function useCertificatesClient(): CertificatesClient {
 
 export function usePluginsClient(): PluginsClient {
   return useScormClient().plugins;
+}
+
+/** The provided client's AI analytics surface. */
+export function useAiClient(): AiClient {
+  return useScormClient().ai;
 }
 
 /** The provided client, or null outside a provider — for components that also accept a client prop. */
