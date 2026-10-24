@@ -62,6 +62,31 @@ thin and reports engine-side `errors` / `warnings` via `onCommit`.
 `createScorm12Api` / `createScorm2004Api` factories are exported for custom
 integrations that manage their own iframe or window.
 
+### Session replay capture (opt-in)
+
+Pass `replay` to record what happens between commits — tab hidden / visible,
+idle stretches, media play / pause / end inside the content and, with
+`pointer: true`, where the learner clicks (as x / y fractions of the content
+viewport). Keystrokes only count as activity; typed text is never recorded.
+
+```ts
+import { ReplayRecorder } from '@scormflow/sdk';
+
+const player = await mountScormPlayer({
+  container: '#player',
+  attemptId,
+  launchUrl,
+  transport,
+  replay: { recorder: new ReplayRecorder({ replay: client.replay, attemptId }), pointer: true, idleMs: 60_000 },
+});
+```
+
+Events are batched, posted with the attempt token, flushed with `keepalive`
+on `pagehide`, and flushed for good on `destroy()`. Content inside a
+cross-origin iframe is skipped (visibility and idle on the host page still
+work). `attachReplayCapture({ recorder, window, iframe })` does the same for
+an iframe you manage yourself.
+
 ## License
 
 MIT

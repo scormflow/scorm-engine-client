@@ -308,6 +308,35 @@ the certificate (`data` is `null` until issued; `refetch` after completion),
 `useCertificates(client.certificates, query)` pages the tenant's list, and
 `<ScormCertificateView certificate={…} />` is the presentational card on its own.
 
+## Session replay
+
+Admin views over the engine's replay endpoints (they need the API key):
+
+```tsx
+import { CourseHeatmap, SessionReplay } from '@scormflow/react';
+
+<SessionReplay attemptId={attemptId} speed={20} />   // engagement score, visits strip, play / scrub, timeline
+<CourseHeatmap courseId={courseId} limit={100} />     // reach, avg time, interactions, drop-offs, click grid
+```
+
+`useSessionReplay(client.replay, attemptId)` and `useCourseHeatmap(client.replay,
+courseId, query)` fetch the data; `useReplayPlayback(replay, { speed })` is the
+playback clock (`position`, `play`, `pause`, `seek`, `currentIndex`, `location`)
+if you draw your own timeline. `<SessionReplayView/>` / `<CourseHeatmapView/>`
+render already-fetched data, and `describeReplayEntry` turns an entry into a line
+of plain English.
+
+To record richer timelines, give the player a recorder (memoize the object — a new
+one re-mounts the player):
+
+```tsx
+const replay = useMemo(
+  () => ({ recorder: new ReplayRecorder({ replay: client.replay, attemptId }), pointer: true }),
+  [attemptId],
+);
+<ScormPlayer attemptId={attemptId} launchUrl={launchUrl} transport={client.runtime} replay={replay} />
+```
+
 ## License
 
 MIT

@@ -15,6 +15,7 @@ export {
   useCertificatesClient,
   usePluginsClient,
   useAiClient,
+  useReplayClient,
   useOptionalScormClient,
 } from './scorm-context.js';
 export type { ScormProviderProps } from './scorm-context.js';
@@ -69,3 +70,15 @@ export { describeAiError, useAiCalls, useAiInsight, useAiProviders, useAiUsage }
 export type { AiInsightState, UseAiUsageOptions } from './use-ai.js';
 export { AiInsightPanel, AiInsightView, describeAiInsight } from './ai-insight-panel.js';
 export type { AiInsightPanelProps, AiInsightViewProps } from './ai-insight-panel.js';
+export {
+  lastIndexAtOrBefore,
+  locationAt,
+  useCourseHeatmap,
+  useReplayPlayback,
+  useSessionReplay,
+} from './use-replay.js';
+export type { ReplayPlayback, ReplayPlaybackOptions } from './use-replay.js';
+export { SessionReplay, SessionReplayView, describeReplayEntry, formatReplayTime } from './session-replay.js';
+export type { SessionReplayProps, SessionReplayViewProps } from './session-replay.js';
+export { CourseHeatmap, CourseHeatmapView, PointerGrid } from './course-heatmap.js';
+export type { CourseHeatmapProps, CourseHeatmapViewProps } from './course-heatmap.js';

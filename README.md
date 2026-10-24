@@ -230,6 +230,17 @@ const { data: activity } = useLiveActivity(client.plugins, { minutes: 15 });
 <AiInsightPanel courseId={courseId} kind="recommendations" renderText={(md) => <Markdown>{md}</Markdown>} />
 const { insight, loading, error, generate } = useAiInsight(client.ai);
 const { data: usage } = useAiUsage(client.ai);
+
+// Session replay (admin tooling): play / scrub an attempt, see where a course loses learners
+<SessionReplay attemptId={attemptId} speed={20} />
+<CourseHeatmap courseId={courseId} limit={100} />
+
+// Opt the learner-facing player in to capture (memoize the option object)
+const replay = useMemo(
+  () => ({ recorder: new ReplayRecorder({ replay: client.replay, attemptId }), pointer: true }),
+  [attemptId],
+);
+<ScormPlayer attemptId={attemptId} launchUrl={launchUrl} transport={client.runtime} replay={replay} />
 ```
 
 > Wrap the tree in `<ScormProvider client={client}>` and hooks / components can
@@ -285,6 +296,14 @@ const insight  = await client.ai.generate({ kind: 'insights', courseId: course.i
 const usage    = await client.ai.usage();                                                     // tokens, cost, cap status
 const csv      = await client.ai.callsCsv({ limit: 1000 });                                  // audit log export
 
+// Session replay — timelines are rebuilt from commits; capture events are opt-in extras
+const timeline = await client.replay.attempt(attempt.attemptId);   // entries, visits, engagement score
+const heatmap  = await client.replay.courseHeatmap(course.id, { limit: 100 });
+const recorder = new ReplayRecorder({ replay: client.replay, attemptId: attempt.attemptId });
+recorder.navigate('slide-3');                                      // batched, retried, deduped by id
+recorder.record('quiz.skipped', { data: { question: 'q4' } });
+await recorder.stop();                                             // flush what's left
+
 // Any transport (this is what the player drives)
 await client.runtime.initialize(attempt.attemptId);
 await client.runtime.commit(attempt.attemptId, { 'cmi.score.raw': '85' });
@@ -337,7 +356,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Typed error hierarchy (`ScormError`, `ScormHttpError`, `ScormNetworkError`, ...)
 - [x] Unit tests (Vitest) for transports + HTTP client
 - [x] `ResourceClient` — courses + analytics REST surface, upload with progress
-- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events` / `plugins` / `ai`)
+- [x] `ScormClient` top-level facade (`courses` / `attempts` / `runtime` / `analytics` / `xapi` / `cmi5` / `webhooks` / `certificates` / `events` / `plugins` / `ai` / `replay`)
 - [x] Request / response interceptors (`onRequest` / `onResponse` on `HttpClient`)
 - [x] Automatic token refresh on `RestTransport` (`onUnauthorized` callback refreshes the token on a 401 and retries once; `TokenProvider` still supported)
 - [x] `@scormflow/player` — iframe mount + runtime injection (`window.API` / `window.API_1484_11`)
@@ -370,7 +389,7 @@ Checkboxes reflect the actual state of `main`.
 - [x] Engine plugins — `client.plugins` (list, any plugin's routes, analytics plugin's live activity) + `useLiveActivity` / `usePlugins`
 
 ### Phase 3 — Category-defining
-- [ ] Session replay viewer (`<SessionReplay attemptId={id} />`)
+- [x] Session replay — `client.replay` (timelines, course heatmaps), opt-in capture (`ReplayRecorder`, `attachReplayCapture`, `replay` option on the player), `<SessionReplay/>`, `<CourseHeatmap/>`, `useSessionReplay` / `useCourseHeatmap` / `useReplayPlayback`
 - [x] AI insights (BYO provider + key) — `client.ai` (provider configs, key test, insights, usage, call log + CSV), `<AiInsightPanel/>`, `useAiInsight` / `useAiUsage` / `useAiProviders` / `useAiCalls`
 - [ ] AI provider settings UI (config form, usage meter)
 - [ ] A11y — keyboard nav, screen reader announcements, focus management

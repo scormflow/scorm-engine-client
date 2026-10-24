@@ -12,6 +12,9 @@ export type {
   ScormWindow,
 } from './mount.js';
 
+export { attachReplayCapture } from './replay-capture.js';
+export type { ReplayCaptureOptions } from './replay-capture.js';
+
 export { RuntimeCore } from './runtime.js';
 export type { RuntimeCoreOptions } from './runtime.js';
 

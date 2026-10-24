@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CommitResult, ScormTransport } from '@scormflow/sdk';
-import { mountScormPlayer, type ScormPlayerHandle } from '@scormflow/player';
+import { mountScormPlayer, type MountScormPlayerOptions, type ScormPlayerHandle } from '@scormflow/player';
 
 export type ScormPlayerStatus = 'loading' | 'ready' | 'error' | 'terminated';
 
@@ -19,6 +19,12 @@ export interface UseScormPlayerOptions {
   onError?: (error: unknown) => void;
   /** Extra attributes for the created iframe (e.g. `sandbox`, `allow`). */
   iframeAttributes?: Record<string, string>;
+  /**
+   * Opt in to session-replay capture: `{ recorder: new ReplayRecorder({ replay:
+   * client.replay, attemptId }), pointer: true }`. Memoize it — a new object
+   * re-mounts the player. The recorder is flushed and stopped on unmount.
+   */
+  replay?: MountScormPlayerOptions['replay'];
 }
 
 export interface UseScormPlayerResult {
@@ -42,7 +48,7 @@ export interface UseScormPlayerResult {
  * their identity does not force a re-mount.
  */
 export function useScormPlayer(options: UseScormPlayerOptions): UseScormPlayerResult {
-  const { attemptId, launchUrl, transport, autoCommitMs, iframeAttributes } = options;
+  const { attemptId, launchUrl, transport, autoCommitMs, iframeAttributes, replay } = options;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ScormPlayerHandle | null>(null);
@@ -71,6 +77,7 @@ export function useScormPlayer(options: UseScormPlayerOptions): UseScormPlayerRe
       transport,
       ...(autoCommitMs !== undefined ? { autoCommitMs } : {}),
       ...(iframeAttributes ? { iframeAttributes } : {}),
+      ...(replay ? { replay } : {}),
       onCommit: (result) => onCommitRef.current?.(result),
       onError: (err) => onErrorRef.current?.(err),
     })
@@ -97,7 +104,7 @@ export function useScormPlayer(options: UseScormPlayerOptions): UseScormPlayerRe
       setPlayer(null);
       if (handle) void handle.destroy();
     };
-  }, [attemptId, launchUrl, transport, autoCommitMs, iframeAttributes]);
+  }, [attemptId, launchUrl, transport, autoCommitMs, iframeAttributes, replay]);
 
   const commit = useCallback(async () => {
     await playerRef.current?.commit();
