@@ -55,6 +55,9 @@ export type { Cmi5LaunchStatus, UseCmi5LaunchResult } from './use-cmi5.js';
 
 export { useWebhookDeliveries, useWebhookEndpoints } from './use-webhooks.js';
 
+export { appendEngineEvent, useEngineEvents } from './use-engine-events.js';
+export type { UseEngineEventsOptions, UseEngineEventsResult } from './use-engine-events.js';
+
 export { useCertificate, useCertificates } from './use-certificates.js';
 export { ScormCertificate, ScormCertificateView, formatCertificateDate } from './scorm-certificate.js';
 export type { ScormCertificateProps, ScormCertificateViewProps } from './scorm-certificate.js';

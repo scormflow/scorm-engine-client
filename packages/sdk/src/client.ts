@@ -12,6 +12,7 @@
  *  - `cmi5`      — cmi5 courses + registrations   (via {@link Cmi5Client})
  *  - `webhooks`  — endpoints + delivery log       (via {@link WebhooksClient})
  *  - `certificates` — completion certificates     (via {@link CertificatesClient})
+ *  - `events`    — the live event stream (SSE)     (via {@link EventsClient})
  *
  * The facade owns a single {@link HttpClient} that every namespace shares, so
  * interceptors, headers and retry policy are configured once. `runtime` can be
@@ -38,6 +39,7 @@ import { XapiClient } from './xapi.js';
 import { Cmi5Client } from './cmi5.js';
 import { WebhooksClient } from './webhooks.js';
 import { CertificatesClient } from './certificates.js';
+import { EventsClient } from './events.js';
 
 export interface ScormClientOptions extends HttpClientOptions {
   /**
@@ -94,6 +96,8 @@ export class ScormClient {
   readonly webhooks: WebhooksClient;
   /** Completion certificates: list, read, PDF, revoke, verify. */
   readonly certificates: CertificatesClient;
+  /** The live event stream: every engine event as it happens (API key; server-side). */
+  readonly events: EventsClient;
 
   readonly courses: CoursesApi;
   readonly attempts: AttemptsApi;
@@ -109,6 +113,7 @@ export class ScormClient {
     this.cmi5 = new Cmi5Client(this.http);
     this.webhooks = new WebhooksClient(this.http);
     this.certificates = new CertificatesClient(this.http);
+    this.events = new EventsClient(this.http);
 
     const resources = this.resources;
     const rest = this.rest;

@@ -229,6 +229,33 @@ function DeliveryLog({ endpointId }: { endpointId: string }) {
 
 Page through older deliveries by passing `log.pagination.nextCursor` as `before`.
 
+## Live events
+
+`useEngineEvents` keeps a live feed of engine events over the SDK's
+`EventsClient` (`client.events`) — newest first, capped at `limit`:
+
+```tsx
+import { useEngineEvents } from '@scormflow/react';
+
+function Activity() {
+  const { events, status } = useEngineEvents(client.events, {
+    types: ['course.completed', 'certificate.issued'],
+    limit: 20,
+    onEvent: () => refetchCompletions(),   // e.g. refresh a list
+  });
+  return (
+    <section>
+      <p>Live: {status}</p>
+      <ul>{events.map((e) => <li key={e.id}>{e.type} · {e.createdAt}</li>)}</ul>
+    </section>
+  );
+}
+```
+
+It connects on mount, reconnects on its own, and closes on unmount or when
+`enabled` turns false. The stream needs a tenant API key, so this belongs in
+admin tooling whose `client` talks to your backend — not in a learner-facing page.
+
 ## Certificates
 
 `<ScormCertificate/>` shows one attempt's completion certificate with a PDF

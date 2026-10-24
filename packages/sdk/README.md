@@ -39,6 +39,7 @@ namespaces:
 | `client.cmi5` | cmi5 courses, registrations, launch, waive, learner preferences — see [cmi5](#cmi5) |
 | `client.webhooks` | webhook endpoints, test events, delivery log — see [Webhooks](#webhooks) |
 | `client.certificates` | completion certificates, PDFs, revocation, public verification — see [Certificates](#certificates) |
+| `client.events` | the live event stream (Server-Sent Events) — see [Live events](#live-events) |
 
 `client.http` (the shared `HttpClient`), `client.rest` (the `RestTransport`) and
 `client.resources` (the `ResourceClient`) stay reachable for endpoints the
@@ -240,6 +241,34 @@ const { certificate, created } = await client.certificates.issue(attemptId); // 
 // Public — anyone holding the printed code
 const result = await client.certificates.verify('7KQ2-M9XD-4TPA');  // null if unknown; result.valid is false once revoked
 ```
+
+## Live events
+
+`client.events.stream()` follows the engine's `GET /events/stream` and calls
+`onEvent` with each event as it happens — the same `WebhookPayload`
+(`{ id, type, createdAt, data }`) a webhook delivery carries, so one handler can
+serve both. It reads the stream with `fetch` (an `EventSource` can't send
+`X-API-Key`), so it runs in Node ≥ 20, Deno, Bun, edge runtimes and browsers.
+
+```ts
+const stream = client.events.stream({
+  types: ['course.completed', 'certificate.issued'],   // omit for every type
+  onEvent: (event) => console.log(event.type, event.data),
+  onStatus: (status) => console.log(status),           // open → reconnecting → open … → closed
+  onError: (err) => console.warn(err),
+});
+// later
+stream.close();
+await stream.done;
+```
+
+Dropped connections are re-opened with exponential backoff (starting at the
+server's `retry:` hint, capped by `retryMaxMs`); a `401` / `400` closes the
+stream for good. Events raised while disconnected are **not** replayed — use
+webhooks where every event must arrive, and dedupe on `event.id` if you use
+both. The stream needs a tenant API key: keep it on your server (or proxy it)
+rather than shipping the key to browsers. `parseSse(body)` is exported for
+reading any other SSE response.
 
 ## Health and readiness
 
