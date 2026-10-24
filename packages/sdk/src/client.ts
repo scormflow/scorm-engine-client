@@ -11,6 +11,7 @@
  *  - `xapi`      — the built-in LRS               (via {@link XapiClient})
  *  - `cmi5`      — cmi5 courses + registrations   (via {@link Cmi5Client})
  *  - `webhooks`  — endpoints + delivery log       (via {@link WebhooksClient})
+ *  - `certificates` — completion certificates     (via {@link CertificatesClient})
  *
  * The facade owns a single {@link HttpClient} that every namespace shares, so
  * interceptors, headers and retry policy are configured once. `runtime` can be
@@ -36,6 +37,7 @@ import type { ScormTransport } from './transport.js';
 import { XapiClient } from './xapi.js';
 import { Cmi5Client } from './cmi5.js';
 import { WebhooksClient } from './webhooks.js';
+import { CertificatesClient } from './certificates.js';
 
 export interface ScormClientOptions extends HttpClientOptions {
   /**
@@ -90,6 +92,8 @@ export class ScormClient {
   readonly cmi5: Cmi5Client;
   /** Webhook endpoints, test events, and the delivery log. */
   readonly webhooks: WebhooksClient;
+  /** Completion certificates: list, read, PDF, revoke, verify. */
+  readonly certificates: CertificatesClient;
 
   readonly courses: CoursesApi;
   readonly attempts: AttemptsApi;
@@ -104,6 +108,7 @@ export class ScormClient {
     this.xapi = new XapiClient(this.http);
     this.cmi5 = new Cmi5Client(this.http);
     this.webhooks = new WebhooksClient(this.http);
+    this.certificates = new CertificatesClient(this.http);
 
     const resources = this.resources;
     const rest = this.rest;

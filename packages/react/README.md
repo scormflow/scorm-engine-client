@@ -229,6 +229,32 @@ function DeliveryLog({ endpointId }: { endpointId: string }) {
 
 Page through older deliveries by passing `log.pagination.nextCursor` as `before`.
 
+## Certificates
+
+`<ScormCertificate/>` shows one attempt's completion certificate with a PDF
+download, reading `client.certificates` from `<ScormProvider>` (or a `client`
+prop). It shows `pendingFallback` until the engine has issued one — that
+happens on the commit that completes the attempt.
+
+```tsx
+import { ScormCertificate } from '@scormflow/react';
+
+<ScormCertificate
+  attemptId={attemptId}
+  token={playerToken}          // optional: makes the download a plain link
+  locale="en-GB"
+  pendingFallback="Finish the course to earn your certificate."
+/>
+```
+
+Without `token`, the download fetches the PDF through the client and saves it.
+Colors follow the same `--scormflow-*` CSS variables as `<ScormPlayer/>`.
+
+For custom layouts, `useCertificate(client.certificates, attemptId)` returns
+the certificate (`data` is `null` until issued; `refetch` after completion),
+`useCertificates(client.certificates, query)` pages the tenant's list, and
+`<ScormCertificateView certificate={…} />` is the presentational card on its own.
+
 ## License
 
 MIT

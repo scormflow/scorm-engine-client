@@ -145,6 +145,18 @@ export type {
   XapiStatementStoredEventData,
 } from './webhooks.js';
 
+export { CertificatesClient } from './certificates.js';
+export type {
+  Certificate,
+  CertificateEventData,
+  CertificateList,
+  CertificatePdfUrlOptions,
+  CertificateQuery,
+  CertificateStatus,
+  CertificateVerification,
+  IssueCertificateResult,
+} from './certificates.js';
+
 export { ScormClient, createScormClient } from './client.js';
 export type {
   ScormClientOptions,
