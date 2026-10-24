@@ -31,6 +31,8 @@ import {
   type Course,
   type CourseAnalytics,
   type CourseListResult,
+  type LaunchUrl,
+  type LaunchUrlQuery,
   type LearnerAnalytics,
   type PackageValidationReport,
   type ScoreDistribution,
@@ -77,6 +79,11 @@ export interface CoursesApi {
   /** Validate a package without registering it; resolves with the report, valid or not. */
   validate(file: Blob, options?: RequestOptions): Promise<PackageValidationReport>;
   delete(courseId: string): Promise<void>;
+  /**
+   * Signed iframe URL to an attempt's SCO, plus the attempt token it carries.
+   * `scoId` is a manifest identifier (`Course.scos[].identifier`).
+   */
+  launchUrl(courseId: string, query: LaunchUrlQuery, options?: RequestOptions): Promise<LaunchUrl>;
   /** Releases: publish, changelog, diff, rollback. */
   versions: CourseVersionsClient;
 }
@@ -157,6 +164,7 @@ export class ScormClient {
       upload: (file, options) => resources.uploadCourse(file, options),
       validate: (file, options) => resources.validateCourse(file, options),
       delete: (courseId) => resources.deleteCourse(courseId),
+      launchUrl: (courseId, query, options) => resources.getLaunchUrl(courseId, query, options),
       versions: new CourseVersionsClient(this.http),
     };
 

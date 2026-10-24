@@ -78,7 +78,11 @@ export interface paths {
                     source?: "engine" | "external";
                     /** @description Absolute SCO entry URL. Required when `source=external`. */
                     src?: string;
-                    /** @description Optional — override the default SCO (engine source only). */
+                    /**
+                     * @description Optional — override the attempt's SCO by manifest `identifier`
+                     *     (engine source only). Defaults to the SCO the attempt was started
+                     *     on, then the release's primary entry.
+                     */
                     scoId?: string;
                     /**
                      * @description `1` / `true` turns on session-replay capture for this launch: tab
@@ -120,6 +124,15 @@ export interface paths {
                 401: components["responses"]["Unauthorized"];
                 /** @description Token is not valid for this attempt. */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Attempt not found, or `scoId` is not a SCO of this course (`sco_not_found`). */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -524,15 +537,32 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get a signed launch URL for the course's primary SCO
-         * @description Returns a short-lived URL pointing at the SCO entry point on the engine's
-         *     static asset host. The player loads this in an iframe.
+         * Get a signed launch URL for an attempt's SCO
+         * @description Returns a short-lived URL to the SCO entry point of an attempt's release
+         *     on the engine's content route, for the SDK player to load in an iframe.
+         *     The URL carries a fresh attempt token in `?token=`; the content route
+         *     answers it with the `sf_attempt` cookie so the SCO's relative
+         *     sub-resource requests authenticate. Over HTTPS that cookie is
+         *     `SameSite=None; Secure; Partitioned`, so it also works when the iframe is
+         *     embedded on another site.
+         *
+         *     Content is only readable with an attempt token, so a launch URL is
+         *     always attempt-scoped: start the attempt first, then ask for its URL.
+         *     The returned `token` is the same one in the URL and also authenticates
+         *     the runtime calls (`/attempts/{attemptId}/commit`, …).
          */
         get: {
             parameters: {
-                query?: {
-                    /** @description Optional — defaults to the manifest's primary SCO. */
+                query: {
+                    /** @description Attempt on this course to launch. */
+                    attemptId: string;
+                    /**
+                     * @description Optional SCO override by manifest `identifier`. Defaults to the SCO
+                     *     the attempt was started on, then the release's primary entry.
+                     */
                     scoId?: string;
+                    /** @description Token lifetime; defaults to `JWT_ATTEMPT_TTL_SECONDS`. */
+                    ttlSeconds?: number;
                 };
                 header?: never;
                 path: {
@@ -550,10 +580,25 @@ export interface paths {
                     content: {
                         "application/json": {
                             /** Format: uri */
-                            launchUrl?: string;
+                            launchUrl: string;
+                            /** @description The attempt token embedded in `launchUrl`. */
+                            token: string;
                             /** Format: date-time */
-                            expiresAt?: string;
+                            expiresAt: string;
+                            /** @description Manifest identifier of the launched SCO; null for the primary entry. */
+                            scoId: string | null;
                         };
+                    };
+                };
+                400: components["responses"]["BadRequest"];
+                401: components["responses"]["Unauthorized"];
+                /** @description No such attempt on this course, or unknown `scoId` (`sco_not_found`). */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -833,7 +878,12 @@ export interface paths {
                         learnerId: string;
                         /** @description Optional display name passed to the SCO as `student_name`. */
                         learnerName?: string;
-                        /** @description Target SCO; defaults to the course's primary SCO. */
+                        /**
+                         * @description Target SCO by manifest `identifier` (as in `Course.scos[].identifier`
+                         *     and `primaryScoId`); a SCO `id` is accepted too. Defaults to the
+                         *     course's primary entry. Open attempts resume per SCO. An unknown
+                         *     SCO is a 404 `sco_not_found`.
+                         */
                         scoId?: string;
                         /**
                          * @default normal

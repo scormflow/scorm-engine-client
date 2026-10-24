@@ -30,6 +30,18 @@ describe('ScormClient', () => {
     expect(report.valid).toBe(true);
   });
 
+  it('routes courses.launchUrl to GET /courses/:id/launch-url with its query', async () => {
+    const body = { launchUrl: 'https://x/api/v1/courses/c1/content/two.html?token=t', token: 't', expiresAt: '2026-10-23T00:00:00Z', scoId: 'ITEM-2' };
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValueOnce(jsonResponse(body));
+    const client = new ScormClient({ baseUrl: 'https://x/v1', apiKey: 'k', fetch: fetchMock, retries: 0 });
+
+    const launch = await client.courses.launchUrl('c 1', { attemptId: 'a1', scoId: 'ITEM-2' });
+    const url = new URL(fetchMock.mock.calls[0]![0] as string);
+    expect(url.pathname).toBe('/v1/courses/c%201/launch-url');
+    expect(Object.fromEntries(url.searchParams)).toEqual({ attemptId: 'a1', scoId: 'ITEM-2' });
+    expect(launch).toEqual(body);
+  });
+
   it('routes courses.list / courses.get through the REST surface', async () => {
     const fetchMock = vi
       .fn<FetchLike>()

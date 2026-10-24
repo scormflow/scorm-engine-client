@@ -39,6 +39,8 @@ export type {
   Course,
   ScoSummary,
   CourseListResult,
+  LaunchUrl,
+  LaunchUrlQuery,
   AnalyticsOverview,
   CourseAnalytics,
   LearnerAnalytics,
