@@ -46,6 +46,10 @@ export type {
   EngineHealth,
   ReadinessReport,
   ReadinessCheckStatus,
+  PackageValidationReport,
+  ValidationCategory,
+  ValidationIssue,
+  ValidationSeverity,
 } from './resources.js';
 
 export { XapiClient, createXapiClient, XAPI_VERSION } from './xapi.js';

@@ -123,6 +123,28 @@ function Uploader() {
 - `useScormUpload(resources)` — `{ upload, status, progress, result, error, reset }`;
   reports real upload progress via XHR in the browser.
 
+### Package validation
+
+Check a ZIP against the engine's validator before uploading it — nothing is
+stored. The report groups issues into structure, manifest, files and launch
+pages, runtime compatibility, accessibility and assets; only errors make it
+invalid.
+
+```tsx
+import { PackageValidator, PackageValidationView, usePackageValidation } from '@scormflow/react';
+
+<PackageValidator onReport={(report) => setCanUpload(report.valid)} hideInfo />
+
+// Or drive it yourself
+const { validate, status, report, error, reset } = usePackageValidation(resources);
+await validate(file);           // status: 'idle' | 'validating' | 'done' | 'error'
+{report && <PackageValidationView report={report} />}
+```
+
+`error` is only set when the request fails; an invalid package comes back as a
+`report` with `valid: false`. `describeValidation(report)` and
+`groupValidationIssues(report)` help when you render it yourself.
+
 ## xAPI hooks
 
 Built on the SDK's `XapiClient` — the engine's built-in LRS.

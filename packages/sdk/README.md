@@ -31,7 +31,7 @@ namespaces:
 
 | Namespace | Methods |
 |-----------|---------|
-| `client.courses` | `list()`, `get(id)`, `upload(file, { title, onProgress })`, `delete(id)` |
+| `client.courses` | `list()`, `get(id)`, `upload(file, { title, onProgress })`, `validate(file)` (full validation report, nothing stored), `delete(id)` |
 | `client.attempts` | `start(courseId, { learnerId, scoId, mode, restart })` |
 | `client.runtime` | `initialize(attemptId)`, `commit(attemptId, values)`, `terminate(attemptId, values?)` |
 | `client.analytics` | `overview()`, `course(id)`, `learner(id)` |

@@ -83,6 +83,46 @@ export interface ReadinessReport {
   checks: { database: ReadinessCheckStatus; storage: ReadinessCheckStatus };
 }
 
+export type ValidationSeverity = 'error' | 'warning' | 'info';
+
+export type ValidationCategory =
+  | 'structure'
+  | 'manifest'
+  | 'resources'
+  | 'runtime'
+  | 'accessibility'
+  | 'assets';
+
+export interface ValidationIssue {
+  /** Stable machine-readable code, e.g. `missing_launch_file`. */
+  code: string;
+  severity: ValidationSeverity;
+  category: ValidationCategory;
+  message: string;
+  /** Package-relative file the issue is about, when there is one. */
+  path: string | null;
+}
+
+/** Result of `POST /courses/validate`. */
+export interface PackageValidationReport {
+  /** True when there are no `error`-severity issues. */
+  valid: boolean;
+  version: ScormVersion | string | null;
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+  info: ValidationIssue[];
+  stats: {
+    fileCount: number;
+    totalBytes: number;
+    /** SCOs found in the default organization. */
+    launchableCount: number;
+    /** HTML / JS files whose contents the engine scanned. */
+    scannedFiles: number;
+  };
+  /** The parsed manifest, or null when it could not be parsed. */
+  manifest: Record<string, unknown> | null;
+}
+
 export interface UploadCourseOptions {
   /** Override the title parsed from the manifest. */
   title?: string;
@@ -165,6 +205,22 @@ export class ResourceClient {
       method: 'POST',
       body: form,
       ...(options.signal ? { signal: options.signal } : {}),
+    });
+  }
+
+  /**
+   * Validate a SCORM package without registering it: structure, manifest,
+   * launch and resource files, runtime API compatibility, accessibility and
+   * asset checks. Resolves with the report whether or not the package is valid.
+   */
+  validateCourse(file: Blob, options?: { signal?: AbortSignal }): Promise<PackageValidationReport> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.request<PackageValidationReport>({
+      path: 'courses/validate',
+      method: 'POST',
+      body: form,
+      ...(options?.signal ? { signal: options.signal } : {}),
     });
   }
 

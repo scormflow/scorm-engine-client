@@ -21,6 +21,15 @@ describe('ScormClient', () => {
     expect(client.runtime).toBe(client.rest);
   });
 
+  it('routes courses.validate to POST /courses/validate', async () => {
+    const fetchMock = vi.fn<FetchLike>().mockResolvedValueOnce(jsonResponse({ valid: true, errors: [] }));
+    const client = new ScormClient({ baseUrl: 'https://x/v1', apiKey: 'k', fetch: fetchMock, retries: 0 });
+    const report = await client.courses.validate(new Blob(['zip']));
+    expect(fetchMock.mock.calls[0]![0]).toBe('https://x/v1/courses/validate');
+    expect(fetchMock.mock.calls[0]![1].method).toBe('POST');
+    expect(report.valid).toBe(true);
+  });
+
   it('routes courses.list / courses.get through the REST surface', async () => {
     const fetchMock = vi
       .fn<FetchLike>()
