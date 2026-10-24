@@ -52,6 +52,7 @@ import { PluginsClient } from './plugins.js';
 import { AiClient } from './ai.js';
 import { ReplayClient } from './replay.js';
 import { EmbedClient } from './embed.js';
+import { CourseVersionsClient } from './course-versions.js';
 
 export interface ScormClientOptions extends HttpClientOptions {
   /**
@@ -76,6 +77,8 @@ export interface CoursesApi {
   /** Validate a package without registering it; resolves with the report, valid or not. */
   validate(file: Blob, options?: RequestOptions): Promise<PackageValidationReport>;
   delete(courseId: string): Promise<void>;
+  /** Releases: publish, changelog, diff, rollback. */
+  versions: CourseVersionsClient;
 }
 
 export interface AttemptsApi {
@@ -154,6 +157,7 @@ export class ScormClient {
       upload: (file, options) => resources.uploadCourse(file, options),
       validate: (file, options) => resources.validateCourse(file, options),
       delete: (courseId) => resources.deleteCourse(courseId),
+      versions: new CourseVersionsClient(this.http),
     };
 
     this.attempts = {

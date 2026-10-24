@@ -83,6 +83,15 @@ export {
   VALIDATION_CATEGORY_LABELS,
 } from './package-validation.js';
 export type { PackageValidationViewProps, PackageValidatorProps } from './package-validation.js';
+export { useCourseVersionDiff, useCourseVersions } from './use-course-versions.js';
+export type { CourseVersionAction, UseCourseVersionsResult } from './use-course-versions.js';
+export {
+  CourseVersionDiffView,
+  CourseVersionHistory,
+  describeVersionDiff,
+  formatVersionDate,
+} from './course-versions.js';
+export type { CourseVersionDiffViewProps, CourseVersionHistoryProps } from './course-versions.js';
 
 export {
   useXapiActivity,
