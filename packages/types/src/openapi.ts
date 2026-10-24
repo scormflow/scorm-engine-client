@@ -80,6 +80,16 @@ export interface paths {
                     src?: string;
                     /** @description Optional — override the default SCO (engine source only). */
                     scoId?: string;
+                    /**
+                     * @description `1` / `true` turns on session-replay capture for this launch: tab
+                     *     visibility, idle stretches, navigation and media playback inside
+                     *     same-origin content are sent to `POST /attempts/{id}/replay/events`.
+                     *     Ignored when the engine has `REPLAY_CAPTURE_ENABLED=false`. Keystrokes
+                     *     and typed text are never recorded.
+                     */
+                    replay?: components["parameters"]["ReplayCapture"];
+                    /** @description With `replay`, also record where the learner clicks (x / y relative to the content viewport). */
+                    pointer?: components["parameters"]["ReplayPointer"];
                 };
                 header?: never;
                 path: {
@@ -148,13 +158,32 @@ export interface paths {
          *     <script src="https://your-engine/runtime.js?attemptId=...&token=..."></script>
          *     <iframe src="./course/index.html"></iframe>
          *     ```
+         *
+         *     With `attemptId` and `token` the script is prefixed with a
+         *     `window.__SCORMFLOW__` config hydrated from the attempt (CMI state,
+         *     learner, SCORM version), so `GetValue` answers resume data straight
+         *     away; it is served `Cache-Control: no-store`. Without them it is the
+         *     bare, cacheable bridge, configured by a `window.__SCORMFLOW__` object
+         *     the host page sets first (`apiBase`, `attemptId`, `token`, `version`,
+         *     `cmi`, optional `replay`).
          */
         get: {
             parameters: {
-                query: {
-                    attemptId: string;
+                query?: {
+                    /** @description Attempt to hydrate. Required together with `token`. */
+                    attemptId?: string;
                     /** @description Attempt JWT (issued by `/auth/attempt-token`). */
-                    token: string;
+                    token?: string;
+                    /**
+                     * @description `1` / `true` turns on session-replay capture for this launch: tab
+                     *     visibility, idle stretches, navigation and media playback inside
+                     *     same-origin content are sent to `POST /attempts/{id}/replay/events`.
+                     *     Ignored when the engine has `REPLAY_CAPTURE_ENABLED=false`. Keystrokes
+                     *     and typed text are never recorded.
+                     */
+                    replay?: components["parameters"]["ReplayCapture"];
+                    /** @description With `replay`, also record where the learner clicks (x / y relative to the content viewport). */
+                    pointer?: components["parameters"]["ReplayPointer"];
                 };
                 header?: never;
                 path?: never;
@@ -170,6 +199,34 @@ export interface paths {
                     content: {
                         "application/javascript": string;
                         "text/javascript": string;
+                    };
+                };
+                /** @description `token` given without `attemptId`. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Token is not valid for this attempt. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Attempt not found. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
                     };
                 };
             };
@@ -5118,6 +5175,16 @@ export interface components {
         };
     };
     parameters: {
+        /**
+         * @description `1` / `true` turns on session-replay capture for this launch: tab
+         *     visibility, idle stretches, navigation and media playback inside
+         *     same-origin content are sent to `POST /attempts/{id}/replay/events`.
+         *     Ignored when the engine has `REPLAY_CAPTURE_ENABLED=false`. Keystrokes
+         *     and typed text are never recorded.
+         */
+        ReplayCapture: "1" | "true" | "0" | "false";
+        /** @description With `replay`, also record where the learner clicks (x / y relative to the content viewport). */
+        ReplayPointer: "1" | "true" | "0" | "false";
         CourseId: string;
         AttemptId: string;
         Limit: number;

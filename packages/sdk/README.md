@@ -329,6 +329,26 @@ engine rejects as malformed is dropped; if the engine has capture turned off
 (`isReplayCaptureDisabled(err)`) the recorder calls `onDisabled` and stops
 recording. Reading replays and heatmaps needs the API key.
 
+## Embedding without the SDK
+
+When the learner's page shouldn't load this SDK at all, let the engine serve
+the player. Mint an attempt-scoped token on your server (it needs the API key)
+and send the browser only the URL:
+
+```ts
+const { url, expiresAt } = await client.embed.launch(attemptId, { ttlSeconds: 3600, replay: true });
+// <iframe src={url} />  — the engine's /play page: hydrated SCORM API + the SCO
+
+// Or host the SCO in your own page with the drop-in bridge:
+const { token } = await client.embed.token(attemptId);
+const src = client.embed.runtimeScriptUrl({ attemptId, token, replay: true });
+// <script src={src}></script><iframe src="/course/index.html"></iframe>
+```
+
+`replay: true` (plus `pointer: true` for click positions) makes the served
+bridge capture session-replay events itself; engines with capture turned off
+ignore it. `playUrl` / `runtimeScriptUrl` only build URLs — no request.
+
 ## Health and readiness
 
 Neither call needs credentials. `getReadiness()` resolves on both `200` and
