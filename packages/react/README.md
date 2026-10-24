@@ -330,6 +330,28 @@ the certificate (`data` is `null` until issued; `refetch` after completion),
 `useCertificates(client.certificates, query)` pages the tenant's list, and
 `<ScormCertificateView certificate={…} />` is the presentational card on its own.
 
+## Analytics widgets
+
+Dashboard components over the engine's `/analytics/*` endpoints (they need the
+API key and read `client.resources` from `<ScormProvider>`, or take `client`):
+
+```tsx
+import { AnalyticsDashboard, AnalyticsTrendChart, ScoreDistributionChart } from '@scormflow/react';
+
+<AnalyticsDashboard />                                   // tenant overview tiles + 30-day trend
+<AnalyticsDashboard courseId={courseId} days={14} />     // course tiles + trend + score histogram
+<AnalyticsTrendChart days={90} courseId={courseId} />    // started vs completed per day
+<ScoreDistributionChart courseId={courseId} bins={20} /> // scaled-score histogram, mean + median
+```
+
+`<AnalyticsOverviewCard/>` and `<CourseAnalyticsCard/>` are the stat-tile rows on
+their own. Every widget has a `*View` twin that renders already-fetched data, and
+the hooks — `useAnalyticsOverview`, `useAnalyticsTrends(resources, { days,
+courseId })`, `useScoreDistribution(resources, courseId, bins)`,
+`useLearnerAnalytics` — fetch it. Charts are inline SVG with no chart library:
+hover tooltips, a "Show table" view, and series colors from
+`--scormflow-series-1` / `--scormflow-series-2` (set both for dark mode).
+
 ## Session replay
 
 Admin views over the engine's replay endpoints (they need the API key):

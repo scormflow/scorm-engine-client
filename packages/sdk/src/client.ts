@@ -27,11 +27,14 @@ import { HttpClient, type HttpClientOptions } from './http/http-client.js';
 import {
   ResourceClient,
   type AnalyticsOverview,
+  type AnalyticsTrends,
   type Course,
   type CourseAnalytics,
   type CourseListResult,
   type LearnerAnalytics,
   type PackageValidationReport,
+  type ScoreDistribution,
+  type TrendsQuery,
   type UploadCourseOptions,
 } from './resources.js';
 import {
@@ -88,6 +91,10 @@ export interface AnalyticsApi {
   overview(options?: RequestOptions): Promise<AnalyticsOverview>;
   course(courseId: string, options?: RequestOptions): Promise<CourseAnalytics>;
   learner(learnerId: string, options?: RequestOptions): Promise<LearnerAnalytics>;
+  /** Daily trend series; pass `courseId` to scope it to one course. */
+  trends(query?: TrendsQuery, options?: RequestOptions): Promise<AnalyticsTrends>;
+  /** Scaled-score histogram for a course. */
+  scores(courseId: string, query?: { bins?: number }, options?: RequestOptions): Promise<ScoreDistribution>;
 }
 
 export class ScormClient {
@@ -157,6 +164,8 @@ export class ScormClient {
       overview: (options) => resources.getOverview(options),
       course: (courseId, options) => resources.getCourseAnalytics(courseId, options),
       learner: (learnerId, options) => resources.getLearnerAnalytics(learnerId, options),
+      trends: (query, options) => resources.getTrends(query, options),
+      scores: (courseId, query, options) => resources.getScoreDistribution(courseId, query, options),
     };
   }
 }
