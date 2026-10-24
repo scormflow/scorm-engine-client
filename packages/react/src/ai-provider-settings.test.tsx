@@ -92,6 +92,16 @@ describe('parseAiProviderForm', () => {
     };
     expect(err(form({ model: '  ' }))).toMatch(/model name/);
     expect(err(form({ provider: 'openai_compatible', apiKey: '' }))).toMatch(/needs a base URL/);
+    expect(err(form({ provider: 'azure_openai', apiKey: 'k' }))).toMatch(/Azure OpenAI needs a base URL.*openai\.azure\.com/);
+    expect(err(form({ provider: 'bedrock', apiKey: 'k' }))).toMatch(/AWS Bedrock needs a base URL.*bedrock-runtime/);
+    expect(err(form({ provider: 'custom_http', apiKey: '' }))).toMatch(/needs a base URL/);
+    expect(err(form({ provider: 'groq', apiKey: '' }))).toMatch(/Groq needs an API key/);
+    expect(
+      err(form({ provider: 'bedrock', apiKey: '', baseUrl: 'https://bedrock-runtime.us-east-1.amazonaws.com' })),
+    ).toMatch(/AWS Bedrock needs an API key/);
+    // custom_http works without a key; together has a default base URL.
+    expect(err(form({ provider: 'custom_http', apiKey: '', baseUrl: 'https://ai.example.com/complete' }))).toBeNull();
+    expect(err(form({ provider: 'together', apiKey: 'tk' }))).toBeNull();
     expect(err(form({ baseUrl: 'ftp://x' }))).toMatch(/http/);
     expect(err(form({ monthlyTokenCap: '1.5' }))).toMatch(/whole number/);
     expect(err(form({ monthlyTokenCap: 'lots' }))).toMatch(/whole number/);

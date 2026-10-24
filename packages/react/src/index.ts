@@ -120,6 +120,7 @@ export {
   AiProviderSettings,
   AiProviderTestResultView,
   aiProviderFormFrom,
+  aiProviderNeedsBaseUrl,
   aiProviderNeedsKey,
   describeAiBudget,
   emptyAiProviderForm,
